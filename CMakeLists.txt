@@ -10,4 +10,8 @@ find_package ( LLVM        REQUIRED CONFIG )
 find_package ( libNTS_cpp     REQUIRED CONFIG )
 find_package ( llvm2nts    REQUIRED CONFIG )
 
+add_definitions(${LLVM_DEFINITIONS})
+add_definitions(-D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS)
+
+
 add_subdirectory ( src )
