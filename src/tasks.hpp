@@ -102,6 +102,7 @@ class Tasks
 	private:
 		nts::Nts & n;
 		std::set < nts::BasicNts * > toplevel_bnts;
+		std::string main_nts_name;
 
 		/**
 		 * @pre  Nothing.
@@ -121,6 +122,9 @@ class Tasks
 		 * @assigns Only transitions.
 		 */
 		void compute_transition_info();
+
+
+		void split_to_tasks();
 
 		void split_to_tasks ( nts::BasicNts & bn, bool split_by_annot );
 

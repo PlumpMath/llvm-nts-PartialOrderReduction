@@ -169,27 +169,23 @@ void Tasks::compute_transition_info()
 	}
 }
 
+void Tasks::split_to_tasks()
+{
+	for ( BasicNts * bn : toplevel_bnts )
+	{
+		if ( bn->name == main_nts_name )
+			split_to_tasks ( *bn, false );
+		else
+			split_to_tasks ( *bn, true );
+	}
+}
+
 Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 {
 	Tasks * tasks = new Tasks ( n );
+	tasks->main_nts_name = main_nts;
 	tasks->calculate_toplevel_bnts();
-
-
-	// TODO: Check whether this is ok. In my opinion,
-	// we do not want to split one BasicNts twice,
-	// which is what happens if we have more instances
-	// of one BasicNts.
-	for ( Instance * i : n.instances() )
-	{
-		if ( i->basic_nts().name == main_nts )
-		{
-			tasks->split_to_tasks ( i->basic_nts(), false );
-		}
-		else
-		{
-			tasks->split_to_tasks ( i->basic_nts(), true );
-		}
-	}
+	tasks->split_to_tasks();
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();
