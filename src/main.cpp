@@ -3,7 +3,6 @@
 #include <map>
 #include <stdexcept>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -13,202 +12,32 @@
 
 #include <llvm2nts/llvm2nts.hpp>
 
+#include "tasks.hpp"
+#include "logic_utils.hpp"
+
 using std::cout;
 using std::find_if;
 using std::logic_error;
 using std::make_pair;
 using std::map;
 using std::out_of_range;
+using std::set;
 using std::string;
 using std::unique_ptr;
-using std::unordered_set;
 using std::vector;
 
 using namespace nts;
 
-// Task is a basic organisation unit.
-// It constitutes of states and transitions between them.
-// During execution, instances of task can be assigned to threads.
-// Task uses some subset of global variables. Also, a task
-// may cause another task to be run. This can be computed using static analysis,
-// before POR is run.
 
-struct Task
+class PidTooLarge : public out_of_range
 {
-	string name;
-	// Set of global variables, which can be used by this task.
-	unordered_set < Variable * > globals;
-	
-	// Set of tasks, which can be caused to run directly by this task.
-	unordered_set < Task * > tasks_may_be_run;
-
-	// Which task can activate this task?
-	unordered_set < Task * > can_be_run_by;
+	public:
+		PidTooLarge() : out_of_range ( "Given PID (process ID ) is too large" )
+		{
+			;
+		}
 };
 
-struct Tasks
-{
-	vector < Task * > tasks;
-	map < string, Task * > name_to_task;
-	Task * idle_worker_task;
-
-	void split_to_tasks ( BasicNts & bn, bool split_by_annot );
-
-	Tasks();
-	~Tasks();
-
-};
-
-Tasks::Tasks()
-{
-	idle_worker_task = new Task();
-	idle_worker_task->name = "idle_worker_task";
-	// Do not add it to map - there could be some task with the same name
-}
-
-Tasks::~Tasks()
-{
-	for ( Task * t : tasks )
-	{
-		delete t;
-	}
-}
-
-// Each variable is associated (through its user pointer)
-// to an instance of this class.
-struct GlobalVariableInfo
-{
-	Variable * var;
-
-	// Which tasks (directly) use associated variable.
-	unordered_set < Task * > users;
-
-};
-
-struct StateInfo
-{
-	State * st;
-	Task * t;
-};
-
-AnnotString * find_annot_origin ( Annotations & ants )
-{
-	auto it = find_if ( ants.begin(), ants.end(), [] ( Annotation * a ) {
-		if ( a->type() != Annotation::Type::String )
-			return false;
-		if ( a->name != "origin" )
-			return false;
-		return true;
-	});
-
-	if ( it == ants.end() )
-		return nullptr;
-
-	return static_cast<AnnotString *> ( *it );
-}
-
-/**
- * @pre R1 If split_by_annot is true, "origin" annotation must be composed of two parts.
- * @pre R2, R3, R4 as in  "split_to_tasks ( Nts & , const std::string & )"
- *
- * @post All states in given BasicNts have associated StateInfo.
- *       But this does not meain they have associated task!
- *
- *
- * @param split_by_annot - true  => "origin" annotation is used to split
- *                                  states to task
- *                         false => task is assigned by name of given BasicNts
- *
- * If state's 'origin' consist only of one part and split_by_annot is true,
- * the state is not assigned to any task. For example, if pthreads are used,
- * then __thread_create BasicNts is generated. This BasicNts
- * is instantiated in toplevel and its control states are annotated only by their name.
- */
-void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
-{
-	for ( State * s : bn.states() )
-	{
-		if ( s->user_data )
-			throw logic_error ( "Precondition R4 failed" );
-
-		StateInfo * si = new StateInfo();
-		si->t = nullptr;
-		si->st = s;
-		s->user_data = ( void * ) si;
-
-		string task_name;
-
-		if ( split_by_annot )
-		{
-			AnnotString * origin = find_annot_origin ( s->annotations );
-			if ( !origin )
-				throw logic_error ( "Precondition R3 failed" );
-
-			// TODO Add it to default task
-			// Examples:
-			// "thread_func:0:st_0_0" - from task 'thread_func'
-			// "s_running_1"          - no task
-			size_t pos = origin->value.find ( ':' );
-			if ( pos == string::npos )
-			{
-				si->t = idle_worker_task;
-				continue;
-			}
-
-			task_name = string ( origin->value, 0, pos );
-		} else {
-			task_name = bn.name;
-		}
-
-		Task * t;
-		auto it = name_to_task.find ( task_name );
-	
-		if ( it == name_to_task.end() )
-		{
-			cout << "New task with name: '" << task_name << "'\n";
-			t = new Task();
-			t->name = task_name;
-			tasks.push_back ( t );
-			name_to_task.insert ( make_pair ( task_name, t ) );
-		} else {
-			cout << "Found task with name: '" << task_name << "'\n";
-			t = it->second;
-		}
-
-		si->t = t;
-	}
-}
-
-/**
- * @pre R1: Nts contains only BasicNtses, which are instantiated.
- *      R2: Each BasicNts is flat (i.e. it does not contain call rule)
- *      R3: Each state contains an "origin" annotation (see inliner).
- *      R4: All user pointers are null.
- *      R5: Nobody 'calls' main nts (there is no origin annotation starting with "main::").
- *
- * @post Q1: Each state has associated StateInfo structure.
- *
- * @param main_nts   name of main BasicNts. All states and transition in this BasicNts
- *                   are treated as one task
- */
-Tasks * nts_split_to_tasks ( Nts & n, const std::string & main_nts )
-{
-	Tasks * tasks = new Tasks();
-
-	for ( Instance * i : n.instances() )
-	{
-		if ( i->basic_nts().name == main_nts )
-		{
-			tasks->split_to_tasks ( i->basic_nts(), false );
-		}
-		else
-		{
-			tasks->split_to_tasks ( i->basic_nts(), true );
-		}
-	}
-
-	return tasks;
-}
 
 TransitionRule * VariableUse_get_transitionRule ( const VariableUse & v )
 {
@@ -317,12 +146,13 @@ TransitionRule * VariableUse_get_transitionRule ( const VariableUse & v )
 }
 
 /**
- * @pre R1 All states from the same Nts as given variable
- *         have assigned their StateInfo structure
+ * @pre  Q1: All states from the same Nts as given variable
+ *           have assigned their StateInfo structure
+ * @psot R1: Each task, which can use given variable, is in the returned set.
  */
-unordered_set < Task * > tasks_using_variable ( Variable & v )
+set < Task * > tasks_using_variable ( Variable & v )
 {
-	unordered_set < Task * > tasks;
+	set < Task * > tasks;
 	for ( const VariableUse * u : v.uses() )
 	{
 		TransitionRule * tr = VariableUse_get_transitionRule ( *u );
@@ -516,7 +346,7 @@ struct PartialOrderReduction
 	ControlState * initial_state;
 	ControlState * current_state;
 
-	unordered_set < Variable * > visible_global_vars;
+	set < Variable * > visible_global_vars;
 
 	// Btw sets all global variables as visible
 	PartialOrderReduction ( Nts & n );
@@ -524,6 +354,20 @@ struct PartialOrderReduction
 
 	void split_to_tasks();
 	void calc_variable_users();
+
+	/**
+	 * @brief Can the process 'pid' access given variable?
+	 */
+	bool can_be_used ( Variable *v, const ControlState & s, unsigned int pid ) const;
+
+	/**
+	 * @brief Can the process 'pid' modify given variable?
+	 * @pre  Q1: Variable 'v' is a global variable
+	 *       Q2: and it has associated VariableInfo
+	 *       Q3: with calculated set of tasks using it.
+	 */
+	bool can_be_modified ( Variable *v, const ControlState & s, unsigned int pid ) const;
+
 
 	/*
 	 * @pre R1 list of visible global variables must be calculated
@@ -553,16 +397,50 @@ PartialOrderReduction::~PartialOrderReduction()
 	delete tasks;
 }
 
+bool PartialOrderReduction::can_be_used (
+		Variable * v,
+		const ControlState & cs,
+		unsigned int pid ) const
+{
+	if ( pid >= cs.states.size() )
+		throw PidTooLarge();
+
+	const State * st = cs.states[pid];
+
+	if ( !st->user_data )
+		throw std::logic_error ( "State does not have StateInfo" );
+
+	const StateInfo * si = ( StateInfo * ) st->user_data;
+
+	if ( !si->t )
+		throw std::logic_error ( "State does not belong to any task" );
+
+	const Task * t = si->t;
+
+}
+
 /**
  * @brief It is possible to use set of transitions of process with given id
  *        as an ample set?
+ *
+ * @pre Q1: All transitions have associated calculated TransitionInfo
+ * @assigns nothing
  */
 bool PartialOrderReduction::can_ample (
 		const ControlState & s,
 		unsigned int process_id ) const
 {
 	if ( process_id >= s.states.size() )
-		throw out_of_range ( "process_id too large" );
+		throw PidTooLarge();
+
+
+	auto & transitions = s.states[process_id]->outgoing();
+
+	// Part of C1
+	// TODO: If any of outgoing transitions modifies all global variables
+	// because it does not contain havoc, it can be in ample set
+	// only if none of other running tasks uses global variables.
+	
 
 	// Check C3
 	if ( s.successor_on_stack ( s, process_id ) )
@@ -570,11 +448,33 @@ bool PartialOrderReduction::can_ample (
 
 	// For C2 and C1 we need to have the set of variables, accessed by 
 	// some of transitions, leading from state s.
+	
+	Globals gs;
+	for ( Transition * t : transitions )
+	{
+		if ( !t->user_data )
+			throw logic_error ( "Precondition Q1 failed" );
+
+		const TransitionInfo * ti = ( const TransitionInfo * ) t->user_data;
+		gs.union_with ( ti->global );
+	}
 
 	// Check C2
+	// TODO: Now we do not care much
+	
 
+	// Check C1
+	// Is there a variable, which is:
+	// 1. used by some outgoing transition < and > used by some running task
+	// 2. and modified by some outgoing transition < or > by some running task ?
+	//
+	// TODO: We should check all tasks, which can be run by some running task.
+	//
+	
+	return false;
 }
 
+#if 0
 /**
  * @pre R1: User data of global variables are null.
  * @post Q1: Each global variable has assigned GlobalVariableInfo structure
@@ -607,16 +507,18 @@ void PartialOrderReduction::calc_variable_users()
 	
 }
 
+#endif
+
 void PartialOrderReduction::split_to_tasks()
 {
-	tasks = nts_split_to_tasks ( n, "main" );
+	tasks = Tasks::compute_tasks ( n, "main" );
 }
 
 unique_ptr < Nts * > reduct ( Nts & n )
 {
 	PartialOrderReduction por ( n );
 	por.split_to_tasks();
-	por.calc_variable_users();
+	//por.calc_variable_users();
 
 	return nullptr;
 }

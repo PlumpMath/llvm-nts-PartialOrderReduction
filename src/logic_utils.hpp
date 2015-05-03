@@ -2,36 +2,17 @@
 #define LOGIC_UTILS_HPP_
 #pragma once
 
+#include <functional>
 #include <set>
 
 #include <libNTS/nts.hpp>
 #include <libNTS/logic.hpp>
+#include <libNTS/variables.hpp>
 
-struct VariableUsage
-{
-	nts::Variable * var;
-	bool modify; // Whether this usage modifies it
-
-	VariableUsage ( nts::Variable * var, bool modify ) :
-		var ( var ), modify ( modify ) { ; }
-	VariableUsage ( const VariableUsage & orig ) = default;
-	VariableUsage ( VariableUsage && old ) = default;
-
-	bool operator== ( const VariableUsage & other ) const;
-
-	VariableUsage & operator= ( const VariableUsage & orig ) = default;
-	VariableUsage & operator= ( VariableUsage && old ) = default;
-	bool operator< ( const VariableUsage & snd ) const;
-};
+#include "tasks.hpp"
 
 
-bool can_modify_all_variables ( const nts::Formula & f );
-std::set < VariableUsage > used_variables ( const nts::Formula & f );
-
-
-
-
-
+Globals used_global_variables ( const nts::Nts & n, const nts::Transition & t );
 
 
 

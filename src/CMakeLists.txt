@@ -1,5 +1,6 @@
 add_executable ( po
 	"main.cpp"
+	"tasks.cpp"
 	"logic_utils.cpp"
 )
 
