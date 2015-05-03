@@ -363,6 +363,70 @@ unique_ptr < Nts * > reduct ( Nts & n )
 	return nullptr;
 }
 
+unique_ptr < Nts * > serialize_simple ( Nts & n )
+{
+	ControlState * cs = initial_control_state ( n );
+	cs->print ( cout );
+	cout << "\n";
+	cs->expand();
+	cout << "After expansion: " << cs->next.size() << "\n";
+
+
+	unsigned int depth = 0;
+	ControlState * current = cs;
+	while ( current->n_explored < current->next.size() || current->prev )
+	{
+		cout << "Depth: " << depth << "state: ";
+		current->print ( cout );
+		cout << "\n";
+		if ( current->n_explored >= current->next.size() )
+		{
+			depth--;
+			current = current->prev;
+			current->n_explored++;
+			continue;
+		}
+
+		ControlState * next = current->next [ current->n_explored ];
+		current->print ( cout );
+		cout << " -> ";
+		next->print ( cout );
+		cout << "\n";
+		current = next;
+		current->expand();
+		cout << "After expansion: " << current->next.size() << "\n";
+		depth++;
+	}
+
+	cout << "Stopped.\n"
+		 << "\tExplored: " << current->n_explored << "\n"
+		 << "\tnext: " << current->next.size() << "\n"
+		 << "\trpev: " << current->prev << "\n";
+
+	return nullptr;
+}
+
+enum class SerializationMode
+{
+	Simple,
+	PartialOrderReduction
+};
+
+unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
+{
+	switch ( mode )
+	{
+		case SerializationMode::Simple:
+			return serialize_simple ( n );
+
+		case SerializationMode::PartialOrderReduction:
+			return reduct ( n );
+
+		default:
+			return nullptr;
+	}
+}
+
 int main ( int argc, char **argv )
 {
 	if ( argc <= 1 )
@@ -371,14 +435,16 @@ int main ( int argc, char **argv )
 		return 0;
 	}
 
+	llvm2nts_options opts;
+	opts.thread_poll_size = 0;
+
 	const char * file = argv[1];
-	unique_ptr < Nts > nts = llvm_file_to_nts ( file );
+	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
 	inline_calls_simple ( *nts );
 	cout << *nts;
-	unique_ptr < Nts * > reduced = reduct ( * nts );
-	if ( reduced )
-		cout << * reduced;
-
+	unique_ptr < Nts * > result = serialize ( * nts, SerializationMode::Simple );
+	if ( result )
+		cout << * result;
 
 	cout << "done\n";
 	return 0;

@@ -35,6 +35,32 @@ AnnotString * find_annot_origin ( Annotations & ants )
 	return static_cast<AnnotString *> ( *it );
 }
 
+//------------------------------------//
+// Task                               //
+//------------------------------------//
+
+void Task::compute_globals()
+{
+	global.reads.clear();
+	global.writes.clear();
+
+	for ( StateInfo * si : states )
+	{
+		for ( Transition * t : si->st->outgoing() )
+		{
+			if ( !t->user_data )
+				throw logic_error ( "Precondition Q2 failed" );
+
+			TransitionInfo * ti = static_cast < TransitionInfo * > ( t->user_data );
+			global.union_with ( ti->global );
+		}
+	}
+}
+
+
+//------------------------------------//
+// Tasks                              //
+//------------------------------------//
 
 Tasks::Tasks ( Nts & n ) :
 	n ( n )
@@ -63,8 +89,10 @@ void Tasks::calculate_toplevel_bnts()
  * @pre R1 If split_by_annot is true, "origin" annotation must be composed of two parts.
  * @pre R2, R3, R4 as in  "split_to_tasks ( Nts & , const std::string & )"
  *
- * @post All states in given BasicNts have associated StateInfo.
- *       But this does not meain they have associated task!
+ * @post POST_1: All states in given BasicNts have associated StateInfo,
+ *               which is pointing to associated task.
+ *       POST_2: All tasks have their structure, which has 'states_assigned'.
+ *       
  *
  *
  * @param split_by_annot - true  => "origin" annotation is used to split
@@ -128,6 +156,7 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 		}
 
 		si->t = t;
+		t->states.push_back ( si );
 	}
 }
 
@@ -181,7 +210,10 @@ void Tasks::print_transition_info ( ostream & o ) const
 
 void Tasks::compute_task_structure()
 {
-
+	for ( Task *t : tasks )
+	{
+		t->compute_globals();
+	}
 }
 
 void Tasks::split_to_tasks()
@@ -204,7 +236,8 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();
-	tasks->print_transition_info( cout );
+	//tasks->print_transition_info( cout );
+	tasks->compute_task_structure();
 
 	return tasks;
 }
@@ -212,6 +245,12 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 //------------------------------------//
 // GlobalWrites                       //
 //------------------------------------//
+
+void GlobalWrites::clear()
+{
+	vars.clear();
+	everything = false;
+}
 
 void GlobalWrites::union_with ( const GlobalWrites & other )
 {

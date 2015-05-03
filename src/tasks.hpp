@@ -2,6 +2,7 @@
 #define POR_TASKS_HPP_
 #pragma once
 
+#include <list>
 #include <map>
 #include <ostream>
 #include <string>
@@ -40,6 +41,8 @@ struct GlobalWrites
 
 	void insert ( const nts::Variable * var );
 	void insert_everything();
+
+	void clear();
 };
 
 using GlobalReads = std::set < const nts::Variable * >;
@@ -72,6 +75,7 @@ struct TransitionInfo
 };
 
 
+struct StateInfo;
 
 // Task is a basic organisation unit.
 // It constitutes of states and transitions between them.
@@ -81,15 +85,18 @@ struct TransitionInfo
 // before POR is run.
 
 /**
+ * predicate "states_assigned":
+ *   Each state, which through its StateInfo points to this task,
+ *   has its StateInfo once in this list.
  *
- * predicate "variables_computed":
- *   global_reads and global_writes are computed
+ * predicate "globals_computed":
+ *   global.reads and global.writes are computed
  */
 struct Task
 {
 	std::string name;
-	GlobalReads  global_reads;
-	GlobalWrites global_writes;
+	std::list < StateInfo * > states;
+	Globals global;
 
 #if 0
 	// Set of tasks, which can be caused to run directly by this task.
@@ -98,6 +105,15 @@ struct Task
 	// Which task can activate this task?
 	std::set < Task * > can_be_run_by;
 #endif
+
+	/**
+	 * @pre  Q1: "states_assigned" must be true
+	 *       Q2: Each transition must have associated its TransitionInfo.
+	 *       Q3: Each transition must have computed its globals.
+	 *
+	 * @post R1: "globals_computed" is true.
+	 */
+	void compute_globals();
 };
 
 class Tasks
@@ -130,9 +146,10 @@ class Tasks
 		void print_transition_info ( std::ostream & o ) const;
 
 		/**
-		 * @pre Q1: Every transition has associated computed TransitionInfo.
-		 *      Q2: Every state has associated computed StateInfo.
-		 *          In particular, every state belongs to one task.
+		 * @pre   Q1: Every transition has associated computed TransitionInfo.
+		 *        Q2: Every state has associated computed StateInfo.
+		 *            In particular, every state belongs to one task.
+		 *  @post R1: Every task has computed its structure.
 		 */
 		void compute_task_structure();
 

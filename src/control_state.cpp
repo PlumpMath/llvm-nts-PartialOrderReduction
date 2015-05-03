@@ -1,8 +1,11 @@
+#include <iostream>
 #include <stdexcept>
 
 #include "control_state.hpp"
 
 using std::logic_error;
+using std::ostream;
+using std::cout;
 
 using namespace nts;
 
@@ -18,18 +21,37 @@ bool ControlState::operator== ( const ControlState & other ) const
 	return true;
 }
 
-bool ControlState::on_stack ( const ControlState & other ) const
+void ControlState::print ( ostream & o ) const
 {
-	const ControlState * st = this;
+	o << "( ";
+	if ( states.empty() )
+	{
+		o << ")";
+		return;
+	}
+
+	for ( unsigned int i = 0; i < states.size() - 1; i++ )
+	{
+		o << states[i]->name << " | ";
+	}
+
+	o << states.back()->name << " )";
+}
+
+ControlState * ControlState::on_stack ( ControlState & other ) const
+{
+	ControlState * st = & other;
 	while ( st )
 	{
-		if ( *st == other )
-			return false;
+		if ( *st == *this )
+		{
+			return st;
+		}
 
 		st = st->prev;
 	}
 
-	return false;
+	return nullptr;
 }
 
 /*
@@ -90,27 +112,37 @@ bool ControlState::expand()
 	for ( unsigned int i = 0; i < states.size(); i++ )
 	{
 		const State * s = states[i];
+		cout << "state " << i << ": possible " << s->outgoing().size() << " folowers\n";
 		for ( Transition *t : s->outgoing() )
 		{
 			auto cs_new = new ControlState();
 			cs_new->states = states;
 			cs_new->states[i] = & t->to();
 			// TODO: Check whether this already exists on stack
-			
 
-			// if not, add it
-			next.push_back ( cs_new );
+			ControlState * back_state = cs_new->on_stack ( *this );
+			
+			if ( back_state )
+			{
+				delete cs_new;
+				back_loop.push_back ( back_state );
+			}
+			else
+			{
+				cs_new->prev = this;
+				next.push_back ( cs_new );
+			}
 		}
 	}
 
 	return true;
 }
 
-ControlState initial_control_state ( const Nts & n )
+ControlState * initial_control_state ( const Nts & n )
 {
-	ControlState cs;
-	cs.prev = nullptr;
-	cs.n_explored = 0;
+	ControlState * cs = new ControlState();
+	cs->prev = nullptr;
+	cs->n_explored = 0;
 
 	for ( const Instance * i : n.instances() )
 	{
@@ -128,7 +160,7 @@ ControlState initial_control_state ( const Nts & n )
 		}
 
 		for ( unsigned int j = 0; j < i->n; j++ )
-			cs.states.push_back ( initial_state );
+			cs->states.push_back ( initial_state );
 
 	}
 
