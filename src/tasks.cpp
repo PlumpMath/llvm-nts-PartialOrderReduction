@@ -14,6 +14,7 @@ using std::cout;
 using std::find_if;
 using std::logic_error;
 using std::move;
+using std::ostream;
 using std::set;
 using std::string;
 using std::vector;
@@ -132,13 +133,10 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 
 void Tasks::compute_transition_info()
 {
-	//cout << "** Transitions **\n";
 	for ( /* const */ BasicNts * bn : toplevel_bnts )
 	{
-		//cout << "\t* toplevel " << bn->name << "\n";
 		for ( Transition * t : bn->transitions() )
 		{
-			//cout << "\t\ttransition " << *t << "\n";
 			if ( t->user_data )
 				throw logic_error ( "Precondition Q2 does not hold" );
 
@@ -147,26 +145,43 @@ void Tasks::compute_transition_info()
 			t->user_data = ( void * ) ti;
 
 			ti->global = used_global_variables ( n, *t );
-
-#if 0
-			cout << "\t\treads: ";
-			for ( const Variable * v : ti->global.reads )
-				cout  << v->name << " ";
-
-			if ( ti->global.writes.everything )
-				cout << "\n\t\twrites everything\n";
-			else
-			{
-				cout << "\n\t\twrites: ";
-				for ( const Variable * v : ti->global.writes.vars )
-				{
-					cout << v->name << " ";
-				}
-				cout << "\n";
-			}
-#endif
 		}
 	}
+}
+
+void Tasks::print_transition_info ( ostream & o ) const
+{
+	o << "** Transitions **\n";
+	for ( /* const */ BasicNts * bn : toplevel_bnts )
+	{
+		o << "* toplevel " << bn->name << "\n";
+		for ( Transition * t : bn->transitions() )
+		{
+			o << "\ttransition " << *t << "\n";
+			TransitionInfo * ti = static_cast < TransitionInfo * > ( t->user_data );
+
+			o << "\t\treads: ";
+			for ( const Variable * v : ti->global.reads )
+				o  << v->name << " ";
+
+			if ( ti->global.writes.everything )
+				o << "\n\t\twrites everything\n";
+			else
+			{
+				o << "\n\t\twrites: ";
+				for ( const Variable * v : ti->global.writes.vars )
+				{
+					o << v->name << " ";
+				}
+				o << "\n";
+			}
+		}
+	}	
+}
+
+void Tasks::compute_task_structure()
+{
+
 }
 
 void Tasks::split_to_tasks()
@@ -189,6 +204,7 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();
+	tasks->print_transition_info( cout );
 
 	return tasks;
 }

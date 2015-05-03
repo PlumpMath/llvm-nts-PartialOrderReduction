@@ -3,6 +3,7 @@
 #pragma once
 
 #include <map>
+#include <ostream>
 #include <string>
 #include <vector>
 #include <set>
@@ -89,12 +90,14 @@ struct Task
 	std::string name;
 	GlobalReads  global_reads;
 	GlobalWrites global_writes;
-	
+
+#if 0
 	// Set of tasks, which can be caused to run directly by this task.
 	std::set < Task * > tasks_may_be_run;
 
 	// Which task can activate this task?
 	std::set < Task * > can_be_run_by;
+#endif
 };
 
 class Tasks
@@ -122,6 +125,16 @@ class Tasks
 		 * @assigns Only transitions.
 		 */
 		void compute_transition_info();
+
+
+		void print_transition_info ( std::ostream & o ) const;
+
+		/**
+		 * @pre Q1: Every transition has associated computed TransitionInfo.
+		 *      Q2: Every state has associated computed StateInfo.
+		 *          In particular, every state belongs to one task.
+		 */
+		void compute_task_structure();
 
 
 		void split_to_tasks();
