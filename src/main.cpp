@@ -5,9 +5,12 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include <libNTS/nts.hpp>
 #include <libNTS/inliner.hpp>
+#include <libNTS/variables.hpp>
+
 #include <llvm2nts/llvm2nts.hpp>
 
 using std::cout;
@@ -15,6 +18,7 @@ using std::find_if;
 using std::logic_error;
 using std::make_pair;
 using std::map;
+using std::out_of_range;
 using std::string;
 using std::unique_ptr;
 using std::unordered_set;
@@ -187,7 +191,7 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
  * @param main_nts   name of main BasicNts. All states and transition in this BasicNts
  *                   are treated as one task
  */
-Tasks * split_to_tasks ( Nts & n, const std::string & main_nts )
+Tasks * nts_split_to_tasks ( Nts & n, const std::string & main_nts )
 {
 	Tasks * tasks = new Tasks();
 
@@ -206,7 +210,7 @@ Tasks * split_to_tasks ( Nts & n, const std::string & main_nts )
 	return tasks;
 }
 
-TransitionRule * VariableUser_get_transitionRule ( const VariableUser & v )
+TransitionRule * VariableUse_get_transitionRule ( const VariableUse & v )
 {
 	union
 	{
@@ -225,14 +229,22 @@ TransitionRule * VariableUser_get_transitionRule ( const VariableUser & v )
 
 	switch ( v.user_type )
 	{
-		case VariableUser::UserType::ArrayWrite:
+		case VariableUse::UserType::ArrayWrite:
 			st = St::Formula;
 			ptr.formula = v.user_ptr.arr_wr;
 			break;
 
-		case VariableUser::UserType::VariableReference:
+		case VariableUse::UserType::VariableReference:
 			st = St::Term;
 			ptr.term = v.user_ptr.vref;
+			break;
+
+		case VariableUse::UserType::CallTransitionRule:
+			return v.user_ptr.ctr;
+
+		case VariableUse::UserType::Havoc:
+			st = St::Formula;
+			ptr.formula = v.user_ptr.hvc;
 			break;
 
 		default:
@@ -311,9 +323,9 @@ TransitionRule * VariableUser_get_transitionRule ( const VariableUser & v )
 unordered_set < Task * > tasks_using_variable ( Variable & v )
 {
 	unordered_set < Task * > tasks;
-	for ( const VariableUser & u : v.users() )
+	for ( const VariableUse * u : v.uses() )
 	{
-		TransitionRule * tr = VariableUser_get_transitionRule ( u );
+		TransitionRule * tr = VariableUse_get_transitionRule ( *u );
 		if ( ! tr )
 			continue;
 
@@ -335,6 +347,280 @@ unordered_set < Task * > tasks_using_variable ( Variable & v )
 	return tasks;
 }
 
+struct ControlState
+{
+	// One state per process
+	vector < const State * > states;
+
+
+	/**
+	 * If null, this is the initial state.
+	 * If not, then prev->states.size() == states.size()
+	 */
+	ControlState * prev;
+	vector < ControlState * > next;
+	unsigned int n_explored;
+
+
+	bool expand();
+
+	bool operator== ( const ControlState & other ) const;
+
+	/**
+	 * Is given state on search stack?
+	 */
+	bool on_stack ( const ControlState & st ) const;
+
+	/**
+	 * @brief Does this state have a successor under pid,
+	 *        which is on the stack, induced by 'st'?
+	 */
+	bool successor_on_stack ( const ControlState & st, unsigned int pid ) const;
+
+};
+
+bool ControlState::operator== ( const ControlState & other ) const
+{
+	if ( states.size() != other.states.size() )
+		return false;
+
+	for ( unsigned int i = 0; i < states.size(); i++ )
+		if ( states[i] != other.states[i] )
+			return false;
+
+	return true;
+}
+
+bool ControlState::on_stack ( const ControlState & other ) const
+{
+	const ControlState * st = this;
+	while ( st )
+	{
+		if ( *st == other )
+			return false;
+
+		st = st->prev;
+	}
+
+	return false;
+}
+
+/*
+ * def [ pid-successor ]: For any two control states S_1, S_2, we say
+ * S_2 is a pid-successor of S_1, if and only if
+ * control state of procces with id 'pid' (i.e. S_1.states[pid] )
+ * has a successor 'suc' such that if we substitute S_1.states[pid]
+ * with 'suc', we got S_2.
+ */
+
+bool ControlState::successor_on_stack (
+		const ControlState & st,
+		unsigned int pid ) const
+{
+	if ( states.size() != st.states.size() )
+		throw logic_error ( "Comparing control states of different width" );
+
+	const ControlState *s;
+	/**
+	 * loop invariant: Having the path
+	 * S_k, S_{k-1}, ..., S_1, S_0
+	 * where S_0 = & st, S_k = s and for each i; 0 <= i < k; S_{i+1} = S_i->prev,
+	 * there is no control state S_j where 0 <= j < k such that
+	 * some pid-successor of this state equals S_j.
+	 */
+	for ( s = & st; s != nullptr; s = s->prev )
+	{
+		unsigned int i;
+		// States of all processes except the one with id 'pid' should match
+		for ( i = 0; i < states.size(); i++ )
+		{
+			if ( i == pid )
+				continue;
+
+			if ( states[i] != s->states[i] )
+				break;
+		}
+
+		// One of states is different
+		if ( i != states.size() )
+			continue;
+
+		// All states (except the selected) matches
+		for ( Transition *t : states[pid]->outgoing() )
+		{
+			if ( & t->to() == s->states[pid] )
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool ControlState::expand()
+{
+	// No reduction (for now)
+	n_explored = 0;
+	for ( unsigned int i = 0; i < states.size(); i++ )
+	{
+		const State * s = states[i];
+		for ( Transition *t : s->outgoing() )
+		{
+			auto cs_new = new ControlState();
+			cs_new->states = states;
+			cs_new->states[i] = & t->to();
+			// TODO: Check whether this already exists on stack
+			
+
+			// if not, add it
+			next.push_back ( cs_new );
+		}
+	}
+
+	return true;
+}
+
+ControlState initial_control_state ( const Nts & n )
+{
+	ControlState cs;
+	cs.prev = nullptr;
+	cs.n_explored = 0;
+
+	for ( const Instance * i : n.instances() )
+	{
+		const BasicNts & bn = i->basic_nts();
+		const State * initial_state = nullptr;
+
+		for ( const State * s : bn.states() )
+		{
+			if ( s->is_initial() )
+			{
+				if ( initial_state )
+					throw logic_error ( "Only one initial state is supported" );
+				initial_state = s;
+			}
+		}
+
+		for ( unsigned int j = 0; j < i->n; j++ )
+			cs.states.push_back ( initial_state );
+
+	}
+
+	return cs;
+}
+
+struct PartialOrderReduction
+{
+	Nts & n;
+	Tasks * tasks;
+
+	ControlState * initial_state;
+	ControlState * current_state;
+
+	unordered_set < Variable * > visible_global_vars;
+
+	// Btw sets all global variables as visible
+	PartialOrderReduction ( Nts & n );
+	~PartialOrderReduction();
+
+	void split_to_tasks();
+	void calc_variable_users();
+
+	/*
+	 * @pre R1 list of visible global variables must be calculated
+	 */
+	bool can_ample ( const ControlState & s, unsigned int process_id ) const;
+};
+
+PartialOrderReduction::PartialOrderReduction ( Nts & n ) :
+	n ( n )
+{
+	for ( Variable * v : n.variables() )
+		visible_global_vars.insert ( v );
+}
+
+PartialOrderReduction::~PartialOrderReduction()
+{
+	for ( Variable * v : n.variables() )
+	{
+		if ( !v->user_data )
+			continue;
+
+		GlobalVariableInfo * gvi = ( GlobalVariableInfo * ) v->user_data;
+		delete gvi;
+		v->user_data = nullptr;
+	}
+
+	delete tasks;
+}
+
+/**
+ * @brief It is possible to use set of transitions of process with given id
+ *        as an ample set?
+ */
+bool PartialOrderReduction::can_ample (
+		const ControlState & s,
+		unsigned int process_id ) const
+{
+	if ( process_id >= s.states.size() )
+		throw out_of_range ( "process_id too large" );
+
+	// Check C3
+	if ( s.successor_on_stack ( s, process_id ) )
+		return false;
+
+	// For C2 and C1 we need to have the set of variables, accessed by 
+	// some of transitions, leading from state s.
+
+	// Check C2
+
+}
+
+/**
+ * @pre R1: User data of global variables are null.
+ * @post Q1: Each global variable has assigned GlobalVariableInfo structure
+ *       Q2: In that structure there is a valid list of tasks, which use the variable.
+ *
+ * TODO: Handle missing havoc(). Now the behaviour is the same as if there was
+ * one havoc() in toplevel of each transition formula.
+ */
+void PartialOrderReduction::calc_variable_users()
+{
+	for ( Variable *v : n.variables() )
+	{
+		cout << "Variable " << v->name << "\n";
+		auto used_by = tasks_using_variable ( *v );
+
+		for ( Task * t : used_by )
+		{
+			cout << "\tby " << t->name << "\n" ;
+		}
+
+		auto * gvi = new GlobalVariableInfo();
+		gvi->var = v;
+		gvi->users = move ( used_by );
+
+		if ( v->user_data )
+			throw logic_error ( "Precondition R1 failed: user_data are not null" );
+
+		v->user_data = ( void * ) gvi;
+	}
+	
+}
+
+void PartialOrderReduction::split_to_tasks()
+{
+	tasks = nts_split_to_tasks ( n, "main" );
+}
+
+unique_ptr < Nts * > reduct ( Nts & n )
+{
+	PartialOrderReduction por ( n );
+	por.split_to_tasks();
+	por.calc_variable_users();
+
+	return nullptr;
+}
+
 int main ( int argc, char **argv )
 {
 	if ( argc <= 1 )
@@ -347,23 +633,12 @@ int main ( int argc, char **argv )
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file );
 	inline_calls_simple ( *nts );
 	cout << *nts;
-	Tasks * ts = split_to_tasks ( *nts, "main" );
+	unique_ptr < Nts * > reduced = reduct ( * nts );
+	if ( reduced )
+		cout << * reduced;
 
-	for ( Variable *v : nts->variables() )
-	{
-		cout << "Variable " << v->name << "\n";
-		auto used_by = tasks_using_variable ( *v );
-
-		for ( Task * t : used_by )
-		{
-			cout << "\tby " << t->name << "\n" ;
-		}
-	}
-	
-
-	delete ts;
-	// TODO: Remove all user data
 
 	cout << "done\n";
 	return 0;
 }
+
