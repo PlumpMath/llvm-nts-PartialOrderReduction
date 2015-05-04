@@ -1,6 +1,7 @@
 #include <utility>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 #include <algorithm>
 
 #include <libNTS/logic.hpp>
@@ -15,8 +16,11 @@ using std::find_if;
 using std::logic_error;
 using std::move;
 using std::ostream;
+using std::runtime_error;
 using std::set;
+using std::sort;
 using std::string;
+using std::stringstream;
 using std::vector;
 
 AnnotString * find_annot_origin ( Annotations & ants )
@@ -38,6 +42,13 @@ AnnotString * find_annot_origin ( Annotations & ants )
 //------------------------------------//
 // Task                               //
 //------------------------------------//
+
+Task::Task ( string name ) :
+	name ( move ( name ) )
+{
+	cout << "new task: '" << this->name << "'\n";
+	has_number = false;
+}
 
 void Task::compute_globals()
 {
@@ -66,8 +77,7 @@ Tasks::Tasks ( Nts & n ) :
 	n ( n )
 {
 	main_task = nullptr;
-	idle_worker_task = new Task();
-	idle_worker_task->name = "idle_worker_task";
+	idle_worker_task = new Task ( "idle_worker_task" );
 	// Do not add it to map - there could be some task with the same name
 }
 
@@ -147,13 +157,13 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 	
 		if ( it == name_to_task.end() )
 		{
-			cout << "New task with name: '" << task_name << "'\n";
-			t = new Task();
-			t->name = task_name;
+			t = new Task( task_name );
 			tasks.push_back ( t );
 			name_to_task.insert ( make_pair ( task_name, t ) );
-			if ( task_name == this->main_nts_name )
+
+			if ( t->name == this->main_nts_name )
 				this->main_task = t;
+
 		} else {
 			t = it->second;
 		}
@@ -188,7 +198,11 @@ void Tasks::find_tasks_initial_final_states()
 			// Transition from some task to idle_worker_task
 			if ( fri->t != idle_worker_task )
 			{
-				cout << "Final state of task " << fri->t->name << " is " << from.name << "\n";
+				cout << "Final state of task "
+					 << fri->t->name
+					 << " is "
+					 << from.name << "\n";
+
 				fri->t->final_states.push_back ( fri );
 			}
 		}
@@ -200,18 +214,51 @@ void Tasks::find_tasks_initial_final_states()
 
 			if ( toi->t != idle_worker_task )
 			{	
-				cout << "Initial state of task " << toi->t->name << " is " << to.name << "\n";
+				cout << "Initial state of task "
+					 << toi->t->name
+					 << " is "
+					 << to.name << "\n";
+
 				toi->t->initial_states.push_back ( toi );
+
+				// HACK: we know that 'from' state
+				// should have been named 's_running_X',
+				// where X is the number of task
+				// This name should be preserved in annotations
+				AnnotString * as = find_annot_origin ( t->from().annotations );
+				if ( !as )
+					throw runtime_error ( "Missing 'origin' annotation" );
+
+				string prefix ( "s_running_" );
+				if ( as->value.compare ( 0, prefix.length(), prefix ) )
+					throw runtime_error ( "Source state does not have 's_running_' prefix" );
+
+				stringstream ss ( as->value.substr ( prefix.length() ) );
+				unsigned int task_id;
+				ss >> task_id;
+				std::cout << "Task id: " << task_id << "\n";
+
+				if ( toi->t->has_number && toi->t->number != task_id )
+					throw runtime_error ( "Two IDs for one task?" );
+
+				if ( task_id == 0 )
+					throw runtime_error ( "ID 0 is reserved for main task" );
+
+				toi->t->number = task_id;
+				toi->t->has_number = true;
+
 			}
 		}
 	}
-
 
 	// One more thing: main task is instantiated directly,
 	// so there is no transition from worker to main task.
 	// => we have find it
 	if ( !main_task )
 		return;
+
+	main_task->has_number = true;
+	main_task->number = 0;
 
 	for ( const BasicNts * bn : toplevel_bnts )
 	{
@@ -236,6 +283,34 @@ void Tasks::find_tasks_initial_final_states()
 
 			break;
 		}
+	}
+}
+
+void Tasks::sort_tasks_by_id()
+{
+	// TODO: Check every task has ID
+	for ( Task * t : tasks )
+	{
+		if ( !t->has_number )
+		{
+			cout << "Task " << t->name << "does not have id\n" ;
+			throw logic_error ( "Precondition failed" );
+		}
+	}
+	
+	auto cmp = []( const Task * t1, const Task * t2 ) -> bool
+	{
+		return t1->number < t2->number;
+	};
+
+	sort ( tasks.begin(), tasks.end(), cmp );
+
+	// Check postcondition
+	for ( unsigned int i = 0; i < tasks.size(); i++ )
+	{
+		cout << i << ": task " << tasks[i]->number << " (" << tasks[i]->name << ")\n";
+		if ( tasks[i]->number != i )
+			throw runtime_error ( "Task numbering problem" );
 	}
 }
 
@@ -313,6 +388,7 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 	tasks->calculate_toplevel_bnts();
 	tasks->split_to_tasks();
 	tasks->find_tasks_initial_final_states();
+	tasks->sort_tasks_by_id();
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();

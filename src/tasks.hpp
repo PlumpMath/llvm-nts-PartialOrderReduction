@@ -99,13 +99,19 @@ struct StateInfo;
  */
 struct Task
 {
-	std::string name;
+	const std::string name;
 	// TODO: why list?
 	std::list < StateInfo * > states;
 	Globals global;
 
 	std::vector < StateInfo * > initial_states;
 	std::vector < StateInfo * > final_states;
+
+	bool has_number;
+	unsigned int number;
+
+
+	Task ( std::string name );
 
 #if 0
 	// Set of tasks, which can be caused to run directly by this task.
@@ -167,12 +173,18 @@ class Tasks
 		 *          must hold, i.e. each state belongs to task
 		 *          and each task has list of its states.
 		 *
-		 * post R1: For each task T in .tasks,
-		 *          boundary_states_computed ( T ).
+		 * @post R1: For each task T in .tasks,
+		 *           boundary_states_computed ( T ).
+		 *       R2: Each task have assigned its number.
 		 *
 		 */
 		void find_tasks_initial_final_states();
 
+		/**
+		 * @pre  Tasks must have assigned their number
+		 * @post Task with id 'i' is placed '.tasks[i]'
+		 */
+		void sort_tasks_by_id();
 
 		void split_to_tasks();
 
