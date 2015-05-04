@@ -91,12 +91,21 @@ struct StateInfo;
  *
  * predicate "globals_computed":
  *   global.reads and global.writes are computed
+ *
+ * predicate "boundary_states_computed"
+ *   .initial points to initial state,
+ *   .final points to final state.
+ *   There is no other initial or final state.
  */
 struct Task
 {
 	std::string name;
+	// TODO: why list?
 	std::list < StateInfo * > states;
 	Globals global;
+
+	std::vector < StateInfo * > initial_states;
+	std::vector < StateInfo * > final_states;
 
 #if 0
 	// Set of tasks, which can be caused to run directly by this task.
@@ -153,6 +162,17 @@ class Tasks
 		 */
 		void compute_task_structure();
 
+		/**
+		 * @pre Q1: Postconditions POST_1 and POST_2 of split_to_task()
+		 *          must hold, i.e. each state belongs to task
+		 *          and each task has list of its states.
+		 *
+		 * post R1: For each task T in .tasks,
+		 *          boundary_states_computed ( T ).
+		 *
+		 */
+		void find_tasks_initial_final_states();
+
 
 		void split_to_tasks();
 
@@ -163,6 +183,7 @@ class Tasks
 	public:
 		std::vector < Task * > tasks;
 		std::map < std::string, Task * > name_to_task;
+		Task * main_task;
 		Task * idle_worker_task;
 
 

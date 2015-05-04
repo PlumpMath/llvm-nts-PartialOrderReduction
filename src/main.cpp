@@ -442,7 +442,10 @@ int main ( int argc, char **argv )
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
 	inline_calls_simple ( *nts );
 	cout << *nts;
-	unique_ptr < Nts * > result = serialize ( * nts, SerializationMode::Simple );
+	unique_ptr < Nts * > result = serialize (
+			* nts,
+			SerializationMode::PartialOrderReduction
+	);
 	if ( result )
 		cout << * result;
 

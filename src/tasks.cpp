@@ -65,6 +65,7 @@ void Task::compute_globals()
 Tasks::Tasks ( Nts & n ) :
 	n ( n )
 {
+	main_task = nullptr;
 	idle_worker_task = new Task();
 	idle_worker_task->name = "idle_worker_task";
 	// Do not add it to map - there could be some task with the same name
@@ -132,6 +133,7 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 			if ( pos == string::npos )
 			{
 				si->t = idle_worker_task;
+				idle_worker_task->states.push_back ( si );
 				continue;
 			}
 
@@ -150,13 +152,90 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 			t->name = task_name;
 			tasks.push_back ( t );
 			name_to_task.insert ( make_pair ( task_name, t ) );
+			if ( task_name == this->main_nts_name )
+				this->main_task = t;
 		} else {
-			cout << "Found task with name: '" << task_name << "'\n";
 			t = it->second;
 		}
 
 		si->t = t;
 		t->states.push_back ( si );
+	}
+}
+
+void Tasks::find_tasks_initial_final_states()
+{
+	// Initial state of task T is some state Si such that
+	// there is a state from idle worker Sw such that
+	// there is a transition Sw -> Si.
+	//
+	// Conversely, final state of task T is state Sf s.t.
+	// exists state Sw in idle worker s.t.
+	// there is a transition Sf -> Sw.
+	
+	for ( StateInfo * si : idle_worker_task->states )
+	{
+		//@ assert si->t == idle_worker_task;
+
+		State * st = si->st;
+
+		for ( const Transition * t : st->incoming() )
+		{
+			const State & from = t->from();
+			auto fri = static_cast < StateInfo * > ( from.user_data ) ;
+			
+
+			// Transition from some task to idle_worker_task
+			if ( fri->t != idle_worker_task )
+			{
+				cout << "Final state of task " << fri->t->name << " is " << from.name << "\n";
+				fri->t->final_states.push_back ( fri );
+			}
+		}
+
+		for ( const Transition *t : st->outgoing() )
+		{
+			const State & to = t->to();
+			auto toi = static_cast < StateInfo * > ( to.user_data );
+
+			if ( toi->t != idle_worker_task )
+			{	
+				cout << "Initial state of task " << toi->t->name << " is " << to.name << "\n";
+				toi->t->initial_states.push_back ( toi );
+			}
+		}
+	}
+
+
+	// One more thing: main task is instantiated directly,
+	// so there is no transition from worker to main task.
+	// => we have find it
+	if ( !main_task )
+		return;
+
+	for ( const BasicNts * bn : toplevel_bnts )
+	{
+		if ( bn->name == main_nts_name )
+		{
+			for ( const State * s : bn->states() )
+			{
+				auto si = static_cast < StateInfo * > ( s->user_data );
+
+				if ( s->is_initial() )
+				{
+					cout << "Initial state of main task: " << s->name << "\n";
+					main_task->initial_states.push_back ( si );
+				}
+
+				if ( s->is_final() )
+				{
+					cout << "Final state of main task: " << s->name << "\n";
+					main_task->final_states.push_back ( si );
+				}
+			}
+
+			break;
+		}
 	}
 }
 
@@ -233,6 +312,7 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 	tasks->main_nts_name = main_nts;
 	tasks->calculate_toplevel_bnts();
 	tasks->split_to_tasks();
+	tasks->find_tasks_initial_final_states();
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();
