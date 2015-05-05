@@ -404,6 +404,15 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 // GlobalWrites                       //
 //------------------------------------//
 
+bool GlobalReads::contains ( const Variable * v ) const
+{
+	return cend() != find ( v );
+}
+
+//------------------------------------//
+// GlobalWrites                       //
+//------------------------------------//
+
 void GlobalWrites::clear()
 {
 	vars.clear();
@@ -453,6 +462,32 @@ void Globals::union_with ( const Globals & other )
 {
 	writes.union_with ( other.writes );
 	reads.insert ( other.reads.begin(), other.reads.end() );
+}
+
+bool Globals::may_collide_with ( const Globals & other ) const
+{
+	if ( writes.everything || other.writes.everything )
+		return true;
+
+	for ( const Variable * r : writes.vars )
+	{
+		if ( other.writes.contains ( r ) )
+			return true;
+	
+		if ( other.reads.contains ( r ) )
+			return true;
+	}
+
+	for ( const Variable * r : other.writes.vars )
+	{
+		if ( writes.contains ( r ) )
+			return true;
+
+		if ( reads.contains ( r ) )
+			return true;
+	}
+
+	return false;
 }
 
 //------------------------------------//

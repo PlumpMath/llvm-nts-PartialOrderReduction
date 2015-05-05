@@ -199,6 +199,9 @@ class ControlFlowGraph
 		// It does not modify cs.
 		bool has_state ( ControlState & cs ) const;
 
+		// if CFG does not have given state, returns nullptr.
+		ControlState * get_state ( ControlState & cs ) const;
+
 		// Caller must own the cs. After calling, this class
 		// owns given cs and it is responsible to destroy it.
 		// Therefore, cs must be allocated on heap,
@@ -206,6 +209,8 @@ class ControlFlowGraph
 		//
 		// If given state already exists in graph, returns the old version.
 		// Otherwise returns given cs.
+		//
+		// Returned value belongs to ControlFlofGraph
 		ControlState & insert_state ( ControlState & cs );
 
 		static ControlFlowGraph * build ( const nts::Nts & n, const EdgeVisitorGenerator & g );
@@ -213,7 +218,7 @@ class ControlFlowGraph
 
 struct SimpleVisitor : public IEdgeVisitor
 {
-	private:
+	protected:
 		ControlFlowGraph & g;
 
 	public:
@@ -221,12 +226,40 @@ struct SimpleVisitor : public IEdgeVisitor
 		virtual ~SimpleVisitor();
 
 		void explore ( ControlState & cs, unsigned int pid );
-		void explore ( ControlState & cs );
+		
+		virtual void explore ( ControlState & cs );
 		virtual void operator() ( const CFGEdge & e ) override;
 
 };
 
 SimpleVisitor * SimpleVisitor_generator ( ControlFlowGraph & g );
 
+class Tasks;
+struct POVisitor : public SimpleVisitor
+{
+	private:
+		nts::Nts & n;
+		Tasks * t;
+
+	public:
+		POVisitor ( ControlFlowGraph & g, nts::Nts & n );
+		virtual ~POVisitor();
+
+		/**
+		 * @pre  Q1: All transitions in .n must have computed TransitionInfo
+		 */
+		bool try_ample ( ControlState & cs, unsigned int pid );
+		virtual void explore ( ControlState & cs ) override;
+
+		struct generator;
+};
+
+struct POVisitor::generator
+{
+	nts::Nts & n;
+	generator ( nts::Nts & n ) : n ( n ) { ; }
+
+	POVisitor * operator() ( ControlFlowGraph & g );
+};
 
 #endif // POR_SRC_CONTROL_STATE_HPP

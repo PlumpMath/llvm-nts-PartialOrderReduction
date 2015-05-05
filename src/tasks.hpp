@@ -46,7 +46,10 @@ struct GlobalWrites
 	void clear();
 };
 
-using GlobalReads = std::set < const nts::Variable * >;
+struct GlobalReads : public std::set < const nts::Variable * >
+{
+	bool contains ( const nts::Variable * var ) const;
+};
 
 struct Globals
 {
@@ -54,6 +57,13 @@ struct Globals
 	GlobalWrites writes;
 
 	void union_with ( const Globals & other );
+
+	/**
+	 * Commutative.
+	 * True iff there exists some global variable, which is
+	 * read or modified by one Globals and modified by second Globals.
+	 */
+	bool may_collide_with ( const Globals & other ) const;
 };
 
 /**

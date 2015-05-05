@@ -1,3 +1,4 @@
+#include <vector>
 #include <iostream>
 #include <stdexcept>
 #include <regex>
@@ -12,6 +13,7 @@ using std::logic_error;
 using std::ostream;
 using std::cout;
 using std::size_t;
+using std::vector;
 
 using namespace nts;
 
@@ -235,6 +237,8 @@ bool ControlFlowGraph::explore_next_edge()
 	CFGEdge & edge = current->next[ current->di.visited_next ];
 	current->di.visited_next++;
 
+	edge.to.di.reached_from = current;
+
 	// Each edge is visited exactly once
 	edges.push_back ( & edge );
 
@@ -254,6 +258,16 @@ bool ControlFlowGraph::has_state ( ControlState & cs ) const
 {
 	auto found = states.find ( & cs );
 	return found != states.cend();
+}
+
+ControlState * ControlFlowGraph::get_state ( ControlState & cs ) const
+{
+	auto found = states.find ( & cs );
+
+	if ( found != states.cend() )
+		return *found;
+
+	return nullptr;
 }
 
 ControlState & ControlFlowGraph::insert_state ( ControlState & cs )
@@ -276,8 +290,8 @@ ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGen
 	cfg->_edge_visitor =  gen ( *cfg );
 
 	ControlState * initial = initial_control_state ( n );
-	(*cfg->_edge_visitor) ( CFGEdge ( nullptr, *initial, nullptr, 0 ) );
 	cfg->states.insert ( initial );
+	(*cfg->_edge_visitor) ( CFGEdge ( nullptr, *initial, nullptr, 0 ) );
 	cfg->current = initial;
 
 	while ( cfg->explore_next_edge() )
@@ -318,16 +332,16 @@ void SimpleVisitor::operator() ( const CFGEdge & e )
 	switch ( e.to.di.st )
 	{
 		case ControlState::DFSInfo::St::New:
-			cout << "Reached new state. Expanding.\n";
+			//cout << "Reached new state. Expanding.\n";
 			explore ( e.to );
 			break;
 
 		case ControlState::DFSInfo::St::On_stack:
-			cout << "Reached state on stack. Ignoring.\n";
+			cout << "**Reached state on stack. Ignoring.\n";
 			break;
 
 		case ControlState::DFSInfo::St::Closed:
-			cout << "Reached closed state. Ignoring.\n";
+			cout << "**Reached closed state. Ignoring.\n";
 			break;
 	}
 }
@@ -363,5 +377,144 @@ void SimpleVisitor::explore ( ControlState & cs, unsigned int pid )
 		cs.next.push_back ( CFGEdge ( & cs, reached, t, pid ) );
 	}
 }
-// TODO: POR visitor.
+
+//------------------------------------//
+// POVisitor - partial order          //
+//------------------------------------//
+
+POVisitor * POVisitor::generator::operator() ( ControlFlowGraph & g )
+{
+	return new POVisitor ( g, n );
+}
+
+POVisitor::POVisitor ( ControlFlowGraph & g, Nts & n ) :
+	SimpleVisitor ( g ), n ( n )
+{
+	t = Tasks::compute_tasks ( n, "main" );
+}
+
+POVisitor::~POVisitor()
+{
+	delete t;
+}
+
+namespace
+{
+struct mystate
+{
+	ControlState * st;
+	bool is_my;
+	mystate ( ControlState * st, bool my ) :
+		st ( st ), is_my ( my ) { ; }
+};
+// Well, there might be two edges leading to the same state,
+// but it should not be bad.
+struct mystates : public vector < mystate >
+{
+	~mystates()
+	{
+		for ( mystate & m : *this )
+		{
+			if ( m.is_my )
+				delete m.st;
+		}
+	}
+};
+
+}
+
+bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
+{
+	
+	// Calculate all possible next states
+	// We do not want to add them to set of states (yet).
+
+	// Also calculate set of read / modified global variables
+
+	mystates my_states;
+	Globals gs; //< Modified by some transition in this possible ample set
+
+	const ProcessState & s = cs.states[pid];
+	for ( Transition *t : s.bnts_state->outgoing() )
+	{
+
+		const TransitionInfo * ti = ( const TransitionInfo * ) t->user_data;
+		gs.union_with ( ti->global );
+
+		auto cs_new = new ControlState();
+		cs_new->states = cs.states; // Copy
+		cs_new->states[pid].bnts_state = & t->to();
+
+		ControlState * next = g.get_state ( *cs_new );
+		if ( next )
+		{
+			// We already have this state
+			delete cs_new;
+			my_states.push_back ( mystate ( next, false ) );
+		} else {
+			my_states.push_back ( mystate ( cs_new, true ) );
+		}
+	}
+
+	// Check C3: Is some of these states on stack?
+	for ( mystate & ms : my_states )
+	{
+		ControlState * s = ms.st;
+
+		if ( s->di.st == ControlState::DFSInfo::St::On_stack )
+			return false;
+
+		// But note that state 'cs' is not marked as on stack.
+		if ( &cs == s )
+		{
+			cout << "self loop\n";
+			return false;
+		}
+	}
+
+	// TODO: Calculate all tasks which may run in current state
+	// in some thread different to pid.
+	// FIXME: Now we assume that no task can cause another task to start.
+	//std::set < Task * > running_tasks;
+	Globals other_tasks_globals;
+	for ( unsigned int i = 0; i < cs.states.size(); i++ )
+	{
+		if ( i == pid )
+			continue;
+
+		ProcessState & ps = cs.states[i];
+		StateInfo * si = static_cast < StateInfo * > ( ps.bnts_state->user_data );
+
+		//running_tasks.insert ( si->t );
+		other_tasks_globals.union_with ( si->t->global );
+	}
+
+	if ( other_tasks_globals.may_collide_with ( gs ) )
+		return false;
+
+	cout << "Possible ample set: pid " << pid << "\n";
+
+	// TODO: add it
+	
+
+	return false;
+
+	return true;
+}
+
+void POVisitor::explore ( ControlState & cs )
+{
+	// Try to use one of the process states as ample set
+	for ( unsigned int i = 0; i < cs.states.size(); i++ )
+	{
+		if ( try_ample ( cs, i ) )
+			return;
+	}
+
+	cout << "Can not find ample set\n";
+	// We must expand all states
+	SimpleVisitor::explore ( cs );
+}
+
+
 

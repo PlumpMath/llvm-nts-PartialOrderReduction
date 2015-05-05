@@ -421,7 +421,8 @@ enum class SerializationMode
 
 unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
 {
-	ControlFlowGraph * cfg = ControlFlowGraph::build ( n, SimpleVisitor_generator );
+	POVisitor::generator g ( n );
+	ControlFlowGraph * cfg = ControlFlowGraph::build ( n, g /* SimpleVisitor_generator */ );
 	delete cfg;
 	return nullptr;
 #if 0
