@@ -15,6 +15,9 @@ using std::size_t;
 
 using namespace nts;
 
+//------------------------------------//
+// ProcessState                       //
+//------------------------------------//
 
 bool ProcessState::operator== ( const ProcessState & other ) const
 {
@@ -43,6 +46,10 @@ size_t ProcessState::calculate_hash ( const ProcessState & st )
 	MyTemplatePointerHash1<State> h;
 	return h ( st.bnts_state );
 }
+
+//------------------------------------//
+// ControlState                       //
+//------------------------------------//
 
 bool ControlState::operator== ( const ControlState & other ) const
 {
@@ -155,7 +162,6 @@ bool calls_thread_create ( const Transition & t )
 ControlState * initial_control_state ( const Nts & n )
 {
 	ControlState * cs = new ControlState();
-	cs->reached_from = nullptr;
 
 	for ( const Instance * i : n.instances() )
 	{
@@ -180,52 +186,151 @@ ControlState * initial_control_state ( const Nts & n )
 	return cs;
 }
 
+//------------------------------------//
+// ControlState::DFSInfo              //
+//------------------------------------//
+
+ControlState::DFSInfo::DFSInfo()
+{
+	this->st= St::New;
+	this->reached_from = nullptr;
+	this->visited_next = 0;
+}
+
+//------------------------------------//
+// ControlFlowGraph                   //
+//------------------------------------//
+
+
 ControlFlowGraph::ControlFlowGraph() :
 	states (1000, ControlState::calculate_hash_p) 
 {
 	;
 }
 
-void ControlFlowGraph::explore ( ControlState * cs, unsigned int pid )
+ControlFlowGraph::~ControlFlowGraph()
 {
-	const ProcessState & s = cs->states[pid];
-	cout << "process " << pid << ": possible " << s.bnts_state->outgoing().size() << " folowers\n";
-	for ( Transition *t : s.bnts_state->outgoing() )
+	for ( ControlState * x : states )
 	{
-		auto cs_new = new ControlState();
-		cs_new->states = cs->states; // Copy
-		cs_new->states[pid].bnts_state = & t->to();
-
-		cout << "Discovered: ";
-		cs_new->print ( cout );
-		cout << "\n";
-
-		// Does this state exist?
-		auto found = states.find ( cs_new );
-
-		// Found?
-		if ( found != states.cend() )
-		{
-			cout << "Found some older state\n";
-			cs->next.push_back ( CFGEdge ( *found, t, pid ) );
-			delete cs_new;
-		}
-		else
-		{
-			cout << "New state\n";
-			cs_new->reached_from = cs;
-			cs->next.push_back ( CFGEdge ( cs_new, t, pid ) );
-			states.insert ( cs_new );
-			unexplored_states.insert ( cs_new );
-		}
+		delete x;
 	}
 }
 
-void ControlFlowGraph::explore ( ControlState * cs )
+bool ControlFlowGraph::explore_next_edge()
 {
-	for ( unsigned int i = 0; i < cs->states.size(); i++ )
+	// Go back to top state, which is not closed yet	
+	while ( current && current->di.visited_next >= current->next.size() )
 	{
-		const ProcessState & s = cs->states[i];
+		ControlState * up = current->di.reached_from;
+		current->di.st = ControlState::DFSInfo::St::Closed;
+		current->di.reached_from = nullptr;
+		current = up;
+	}
+
+	if ( ! current )
+		return false;
+
+	// now current->di.visited_next < current->next.size()
+	// So visit next
+	const CFGEdge & edge = current->next[ current->di.visited_next ];
+	current->di.visited_next++;
+
+	if ( _edge_visitor )
+		(*_edge_visitor) ( edge );
+	
+	if ( edge.to.di.st == ControlState::DFSInfo::St::New )
+	{
+		edge.to.di.st = ControlState::DFSInfo::St::On_stack;
+		current = & edge.to;
+	}
+
+	return true;
+}
+
+bool ControlFlowGraph::has_state ( ControlState & cs ) const
+{
+	auto found = states.find ( & cs );
+	return found != states.cend();
+}
+
+ControlState & ControlFlowGraph::insert_state ( ControlState & cs )
+{
+	auto found = states.find ( & cs );
+
+	if ( found == states.cend() )
+	{
+		states.insert ( & cs );
+		return cs;
+	} else {
+		delete & cs;
+		return **found;
+	}
+}
+
+ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGenerator & gen )
+{
+	ControlFlowGraph * cfg = new ControlFlowGraph();
+	cfg->_edge_visitor =  gen ( *cfg );
+
+	ControlState * initial = initial_control_state ( n );
+	(*cfg->_edge_visitor) ( CFGEdge ( nullptr, *initial, nullptr, 0 ) );
+	cfg->states.insert ( initial );
+	cfg->current = initial;
+
+	while ( cfg->explore_next_edge() )
+		;
+
+	delete cfg->_edge_visitor;
+
+	return cfg;
+}
+
+//------------------------------------//
+// Simple visitor - no reduction      //
+//------------------------------------//
+
+SimpleVisitor * SimpleVisitor_generator ( ControlFlowGraph & g )
+{
+	return new SimpleVisitor ( g );
+}
+
+SimpleVisitor::SimpleVisitor ( ControlFlowGraph & g ) :
+	g ( g )
+{
+	;
+}
+
+SimpleVisitor::~SimpleVisitor()
+{
+	;
+}
+
+void SimpleVisitor::operator() ( const CFGEdge & e )
+{
+	( void ) e;
+
+	switch ( e.to.di.st )
+	{
+		case ControlState::DFSInfo::St::New:
+			cout << "Reached new state. Expanding.\n";
+			explore ( e.to );
+			break;
+
+		case ControlState::DFSInfo::St::On_stack:
+			cout << "Reached state on stack. Ignoring.\n";
+			break;
+
+		case ControlState::DFSInfo::St::Closed:
+			cout << "Reached closed state. Ignoring.\n";
+			break;
+	}
+}
+
+void SimpleVisitor::explore ( ControlState & cs )
+{
+	for ( unsigned int i = 0; i < cs.states.size(); i++ )
+	{
+		const ProcessState & s = cs.states[i];
 
 		// Skip processes without assigned task
 		if ( s.bnts_state == nullptr )
@@ -234,46 +339,23 @@ void ControlFlowGraph::explore ( ControlState * cs )
 		explore ( cs, i );
 	}
 }
-
-bool ControlFlowGraph::explore_next_state()
+void SimpleVisitor::explore ( ControlState & cs, unsigned int pid )
 {
-	cout << "Unexplored states: " << unexplored_states.size() << "\n";
-
-	if ( unexplored_states.empty() )
-		return false;
-
-	auto b = unexplored_states.begin();
-	ControlState * s = *b;
-	unexplored_states.erase ( b );
-	explore ( s );
-
-	return ! unexplored_states.empty();
-}
-
-ControlFlowGraph * ControlFlowGraph::build ( const Nts & n )
-{
-	ControlFlowGraph * cfg = new ControlFlowGraph();
-	ControlState * initial = initial_control_state ( n );
-	cfg->states.insert ( initial );
-	cfg->unexplored_states.insert ( initial );
-
-#if 0
-	// Create new initial state
-	ControlState * i2 = initial_control_state ( n );
-	auto it = cfg->states.find ( i2 );
-	if ( it == cfg->states.cend() )
+	const ProcessState & s = cs.states[pid];
+	cout << "process " << pid << ": possible " << s.bnts_state->outgoing().size() << " folowers\n";
+	for ( Transition *t : s.bnts_state->outgoing() )
 	{
-		cout << "NOT FOUND\n";
-	} else {
-		cout << "OK\n";
+		auto cs_new = new ControlState();
+		cs_new->states = cs.states; // Copy
+		cs_new->states[pid].bnts_state = & t->to();
+
+		cout << "Discovered: ";
+		cs_new->print ( cout );
+		cout << "\n";
+
+		ControlState & reached = g.insert_state ( *cs_new );
+		cs.next.push_back ( CFGEdge ( & cs, reached, t, pid ) );
 	}
-	return nullptr;
-#endif
-
-	while ( cfg->explore_next_state() )
-		;
-
-	return cfg;
 }
-
+// TODO: POR visitor.
 

@@ -63,12 +63,16 @@ struct ControlState;
 
 struct CFGEdge
 {
-	ControlState * to;
+	// First state does not have 'from' edge.
+	// If .from is null, .t and .pid have no meaning
+	// and are undefined.
+	ControlState * from;
+	ControlState & to;
 	nts::Transition * t;
 	unsigned int pid;
 
-	CFGEdge ( ControlState * to, nts::Transition *t, unsigned int pid ) :
-		to ( to ), t ( t ), pid ( pid )
+	CFGEdge ( ControlState * from, ControlState & to, nts::Transition * t, unsigned int pid ) :
+		from ( from ), to ( to ), t ( t ), pid ( pid )
 	{
 		;
 	}
@@ -81,15 +85,30 @@ struct CFGEdge
  */
 struct ControlState
 {
-	// One state per process
-	std::vector < ProcessState > states;
+	struct DFSInfo
+	{
+		enum class St
+		{
+			New,
+			On_stack,
+			Closed
+		};
+
+		St st;
+		ControlState * reached_from; //< Creates search stack
+		unsigned int visited_next;
+
+		DFSInfo();
+	};
 
 	/**
-	 * If null, this is the initial state.
-	 * If not, then prev->states contains this
+	 * Invariant P1: if d.st > St::New, this state is expanded.
 	 */
-	ControlState * reached_from;
 
+	DFSInfo di;
+
+	// One state per process
+	std::vector < ProcessState > states;
 
 	/**
 	 * States which could be reached from this state.
@@ -129,6 +148,20 @@ struct derref_equal
 
 // TODO Dat si pozor na to, kde v celem programu pouzivam uordered_set. I v ilineru a prekladu.
 
+
+class ControlFlowGraph;
+
+class IEdgeVisitor
+{
+	public:
+		IEdgeVisitor() = default;
+		virtual ~IEdgeVisitor() = default;
+
+		virtual void operator() ( const CFGEdge & edge ) = 0;
+};
+
+using EdgeVisitorGenerator = std::function < IEdgeVisitor * ( ControlFlowGraph & ) >;
+
 class ControlFlowGraph
 {
 	private:
@@ -138,8 +171,11 @@ class ControlFlowGraph
 			derref_equal < ControlState >
 		> states;
 
-		std::set < ControlState * > unexplored_states;
+		//std::set < ControlState * > unexplored_states;
 		ControlState * initial;
+
+		// If not null, current->di.st == On_stack
+		ControlState * current;
 
 		ControlFlowGraph();
 
@@ -148,14 +184,47 @@ class ControlFlowGraph
 		void explore ( ControlState * cs );
 
 		/**
-		 * returns false if there is no state to be explored
+		 * returns false if there is no edge to be explored
 		 */
-		bool explore_next_state();
+		bool explore_next_edge();
+
+		IEdgeVisitor * _edge_visitor;
 
 	public:
 
-		static ControlFlowGraph * build ( const nts::Nts & n );
+		~ControlFlowGraph();
+
+		// It does not modify cs.
+		bool has_state ( ControlState & cs ) const;
+
+		// Caller must own the cs. After calling, this class
+		// owns given cs and it is responsible to destroy it.
+		// Therefore, cs must be allocated on heap,
+		// so it might be possible to call delete on it.
+		//
+		// If given state already exists in graph, returns the old version.
+		// Otherwise returns given cs.
+		ControlState & insert_state ( ControlState & cs );
+
+		static ControlFlowGraph * build ( const nts::Nts & n, const EdgeVisitorGenerator & g );
 };
+
+struct SimpleVisitor : public IEdgeVisitor
+{
+	private:
+		ControlFlowGraph & g;
+
+	public:
+		SimpleVisitor ( ControlFlowGraph & g );
+		virtual ~SimpleVisitor();
+
+		void explore ( ControlState & cs, unsigned int pid );
+		void explore ( ControlState & cs );
+		virtual void operator() ( const CFGEdge & e ) override;
+
+};
+
+SimpleVisitor * SimpleVisitor_generator ( ControlFlowGraph & g );
 
 
 #endif // POR_SRC_CONTROL_STATE_HPP

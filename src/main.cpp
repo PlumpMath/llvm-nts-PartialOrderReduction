@@ -421,7 +421,8 @@ enum class SerializationMode
 
 unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
 {
-	ControlFlowGraph * cfg = ControlFlowGraph::build ( n );
+	ControlFlowGraph * cfg = ControlFlowGraph::build ( n, SimpleVisitor_generator );
+	delete cfg;
 	return nullptr;
 #if 0
 	switch ( mode )
@@ -447,7 +448,7 @@ int main ( int argc, char **argv )
 	}
 
 	llvm2nts_options opts;
-	opts.thread_poll_size = 4;
+	opts.thread_poll_size = 3;
 
 	const char * file = argv[1];
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
