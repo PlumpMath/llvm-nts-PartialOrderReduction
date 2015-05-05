@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_set>
 
 #include <libNTS/nts.hpp>
 #include <libNTS/inliner.hpp>
@@ -25,6 +26,7 @@ using std::out_of_range;
 using std::set;
 using std::string;
 using std::unique_ptr;
+using std::unordered_set;
 using std::vector;
 
 using namespace nts;
@@ -237,6 +239,7 @@ PartialOrderReduction::~PartialOrderReduction()
 	delete tasks;
 }
 
+#if 0
 bool PartialOrderReduction::can_be_used (
 		Variable * v,
 		const ControlState & cs,
@@ -313,6 +316,7 @@ bool PartialOrderReduction::can_ample (
 	
 	return false;
 }
+#endif
 
 #if 0
 /**
@@ -362,7 +366,7 @@ unique_ptr < Nts * > reduct ( Nts & n )
 
 	return nullptr;
 }
-
+#if 0
 unique_ptr < Nts * > serialize_simple ( Nts & n )
 {
 	ControlState * cs = initial_control_state ( n );
@@ -376,14 +380,17 @@ unique_ptr < Nts * > serialize_simple ( Nts & n )
 	ControlState * current = cs;
 	while ( current->n_explored < current->next.size() || current->prev )
 	{
-		cout << "Depth: " << depth << "state: ";
-		current->print ( cout );
-		cout << "\n";
+		//cout << "Depth: " << depth << "state: ";
+		//current->print ( cout );
+		//cout << "\n";
 		if ( current->n_explored >= current->next.size() )
 		{
 			depth--;
 			current = current->prev;
 			current->n_explored++;
+			cout << "Up to ";
+			current->print ( cout );
+			cout << ", remaining: " << (current->next.size() - current->n_explored) << "\n";
 			continue;
 		}
 
@@ -394,7 +401,7 @@ unique_ptr < Nts * > serialize_simple ( Nts & n )
 		cout << "\n";
 		current = next;
 		current->expand();
-		cout << "After expansion: " << current->next.size() << "\n";
+		//cout << "After expansion: " << current->next.size() << "\n";
 		depth++;
 	}
 
@@ -405,7 +412,7 @@ unique_ptr < Nts * > serialize_simple ( Nts & n )
 
 	return nullptr;
 }
-
+#endif
 enum class SerializationMode
 {
 	Simple,
@@ -414,6 +421,9 @@ enum class SerializationMode
 
 unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
 {
+	ControlFlowGraph * cfg = ControlFlowGraph::build ( n );
+	return nullptr;
+#if 0
 	switch ( mode )
 	{
 		case SerializationMode::Simple:
@@ -425,6 +435,7 @@ unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
 		default:
 			return nullptr;
 	}
+#endif
 }
 
 int main ( int argc, char **argv )
@@ -436,7 +447,7 @@ int main ( int argc, char **argv )
 	}
 
 	llvm2nts_options opts;
-	opts.thread_poll_size = 0;
+	opts.thread_poll_size = 4;
 
 	const char * file = argv[1];
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
@@ -444,7 +455,7 @@ int main ( int argc, char **argv )
 	cout << *nts;
 	unique_ptr < Nts * > result = serialize (
 			* nts,
-			SerializationMode::PartialOrderReduction
+			SerializationMode::Simple
 	);
 	if ( result )
 		cout << * result;

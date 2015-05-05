@@ -2,6 +2,7 @@
 #define POR_TASKS_HPP_
 #pragma once
 
+#include <functional>
 #include <list>
 #include <map>
 #include <ostream>
@@ -74,6 +75,31 @@ struct TransitionInfo
 	Globals global;
 };
 
+
+struct StateInfo;
+
+struct ControlState;
+using NextStateFunction = std::function < ControlState * ( const ControlState *, unsigned int ) >;
+
+struct InlinedProcedureCall
+{
+	TransitionInfo * transition;
+	StateInfo * final_state;
+	const NextStateFunction & next;
+};
+
+struct InlinedProcedureCalls
+{
+	std::map < const StateInfo *, InlinedProcedureCall * > calls;
+
+	/**
+	 * If it is possible to simulate transition for proccess 'pid',
+	 * then returns new control state.
+	 * If not, returns null.
+	 *
+	 */
+	ControlState * next ( const ControlState * orig, unsigned int pid ) const;
+};
 
 struct StateInfo;
 
@@ -238,6 +264,7 @@ struct GlobalVariableInfo
 };
 
 
+nts::AnnotString * find_annot_origin ( nts::Annotations & ants );
 
 
 

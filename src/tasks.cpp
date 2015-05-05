@@ -8,6 +8,7 @@
 
 #include "tasks.hpp"
 #include "logic_utils.hpp"
+#include "control_state.hpp"
 
 using namespace nts;
 
@@ -16,6 +17,7 @@ using std::find_if;
 using std::logic_error;
 using std::move;
 using std::ostream;
+using std::out_of_range;
 using std::runtime_error;
 using std::set;
 using std::sort;
@@ -453,6 +455,35 @@ void Globals::union_with ( const Globals & other )
 	reads.insert ( other.reads.begin(), other.reads.end() );
 }
 
+//------------------------------------//
+// InlinedProcedureCalls              //
+//------------------------------------//
 
+ControlState * InlinedProcedureCalls::next ( const ControlState *c, unsigned int pid ) const
+{
+	if ( pid >= c->states.size() )
+		throw out_of_range ( "PID too large" );
 
+	const ProcessState & ps = c->states[pid];
 
+	// This thread is not running at all
+	if ( ps.bnts_state == nullptr )
+		return nullptr;
+
+	const StateInfo * si = static_cast < const StateInfo * > ( ps.bnts_state->user_data );
+	auto it = calls.find ( si );
+	if ( it == calls.end() )
+		return nullptr;
+
+	return it->second->next ( c, pid );
+}
+
+//------------------------------------//
+// thread_create()                    //
+//------------------------------------//
+
+ControlState * thread_create_function ( const ControlState *st, unsigned int pid )
+{
+	const ProcessState & ps = st->states[pid];
+	// There should be exactly one 
+}
