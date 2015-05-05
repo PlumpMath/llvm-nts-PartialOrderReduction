@@ -232,8 +232,11 @@ bool ControlFlowGraph::explore_next_edge()
 
 	// now current->di.visited_next < current->next.size()
 	// So visit next
-	const CFGEdge & edge = current->next[ current->di.visited_next ];
+	CFGEdge & edge = current->next[ current->di.visited_next ];
 	current->di.visited_next++;
+
+	// Each edge is visited exactly once
+	edges.push_back ( & edge );
 
 	if ( _edge_visitor )
 		(*_edge_visitor) ( edge );
@@ -281,6 +284,9 @@ ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGen
 		;
 
 	delete cfg->_edge_visitor;
+
+	cout << "Total states: " << cfg->states.size()
+		 << " edges: " << cfg->edges.size() << "\n";
 
 	return cfg;
 }

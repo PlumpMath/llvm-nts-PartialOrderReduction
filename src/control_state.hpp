@@ -171,6 +171,8 @@ class ControlFlowGraph
 			derref_equal < ControlState >
 		> states;
 
+		std::vector < CFGEdge * > edges;
+
 		//std::set < ControlState * > unexplored_states;
 		ControlState * initial;
 
