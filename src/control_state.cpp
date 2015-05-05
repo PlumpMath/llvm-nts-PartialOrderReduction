@@ -332,7 +332,9 @@ void SimpleVisitor::operator() ( const CFGEdge & e )
 	switch ( e.to.di.st )
 	{
 		case ControlState::DFSInfo::St::New:
-			//cout << "Reached new state. Expanding.\n";
+			cout << "Exploring ";
+			e.to.print ( cout );
+			cout << "\n";
 			explore ( e.to );
 			break;
 
@@ -369,7 +371,7 @@ void SimpleVisitor::explore ( ControlState & cs, unsigned int pid )
 		cs_new->states = cs.states; // Copy
 		cs_new->states[pid].bnts_state = & t->to();
 
-		cout << "Discovered: ";
+		cout << "\tDiscovered: ";
 		cs_new->print ( cout );
 		cout << "\n";
 
@@ -404,8 +406,9 @@ struct mystate
 {
 	ControlState * st;
 	bool is_my;
-	mystate ( ControlState * st, bool my ) :
-		st ( st ), is_my ( my ) { ; }
+	Transition & t;
+	mystate ( ControlState * st, bool my, Transition & t ) :
+		st ( st ), is_my ( my ), t ( t ) { ; }
 };
 // Well, there might be two edges leading to the same state,
 // but it should not be bad.
@@ -450,11 +453,14 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		{
 			// We already have this state
 			delete cs_new;
-			my_states.push_back ( mystate ( next, false ) );
+			my_states.push_back ( mystate ( next, false, *t ) );
 		} else {
-			my_states.push_back ( mystate ( cs_new, true ) );
+			my_states.push_back ( mystate ( cs_new, true, *t ) );
 		}
 	}
+
+	cout << "process " << pid << " uses following variables:\n";
+	cout << gs;
 
 	// Check C3: Is some of these states on stack?
 	for ( mystate & ms : my_states )
@@ -472,8 +478,6 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		}
 	}
 
-	// TODO: Calculate all tasks which may run in current state
-	// in some thread different to pid.
 	// FIXME: Now we assume that no task can cause another task to start.
 	//std::set < Task * > running_tasks;
 	Globals other_tasks_globals;
@@ -492,12 +496,22 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 	if ( other_tasks_globals.may_collide_with ( gs ) )
 		return false;
 
+	cout << "other processes use:\n" << other_tasks_globals;
+
 	cout << "Possible ample set: pid " << pid << "\n";
 
 	// TODO: add it
+	//return false;
 	
+	while ( !my_states.empty() )
+	{
+		mystate & ms = my_states.back();
+		cs.next.push_back ( CFGEdge ( &cs, *ms.st, & ms.t, pid ) );
+		g.insert_state ( * ms.st );
+		ms.st = nullptr;
+		my_states.pop_back();
+	}
 
-	return false;
 
 	return true;
 }

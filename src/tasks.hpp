@@ -46,10 +46,14 @@ struct GlobalWrites
 	void clear();
 };
 
+std::ostream & operator<< ( std::ostream & o, const GlobalWrites & gw );
+
 struct GlobalReads : public std::set < const nts::Variable * >
 {
 	bool contains ( const nts::Variable * var ) const;
 };
+
+std::ostream & operator<< ( std::ostream & o, const GlobalReads & gw );
 
 struct Globals
 {
@@ -65,6 +69,8 @@ struct Globals
 	 */
 	bool may_collide_with ( const Globals & other ) const;
 };
+
+std::ostream & operator<< ( std::ostream & o, const Globals & gs );
 
 /**
  * @brief Additional information about transition.

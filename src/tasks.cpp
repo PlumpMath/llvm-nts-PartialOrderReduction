@@ -68,6 +68,8 @@ void Task::compute_globals()
 			global.union_with ( ti->global );
 		}
 	}
+
+	cout << "Task " << this->name << " uses:\n" << global;
 }
 
 
@@ -80,6 +82,7 @@ Tasks::Tasks ( Nts & n ) :
 {
 	main_task = nullptr;
 	idle_worker_task = new Task ( "idle_worker_task" );
+	//tasks.push_back ( idle_worker_task );
 	// Do not add it to map - there could be some task with the same name
 }
 
@@ -401,13 +404,23 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 }
 
 //------------------------------------//
-// GlobalWrites                       //
+// GlobalReads                        //
 //------------------------------------//
 
 bool GlobalReads::contains ( const Variable * v ) const
 {
 	return cend() != find ( v );
 }
+
+ostream & operator<< ( ostream & o, const GlobalReads & gr )
+{
+	o << "{ ";
+	for ( const Variable * v : gr )
+		o << v->name << ", ";
+	o << "}";
+	return o;
+}
+
 
 //------------------------------------//
 // GlobalWrites                       //
@@ -453,6 +466,20 @@ void GlobalWrites::insert ( const Variable * v )
 	vars.insert ( v );
 }
 
+ostream & operator<< ( ostream & o, const GlobalWrites & gw )
+{
+	if ( gw.everything )
+	{
+		o << "everything";
+		return o;
+	}
+
+	o << "{ ";
+	for ( const Variable * v : gw.vars )
+		o << v->name << ", ";
+	o << "}";
+	return o;
+}
 
 //------------------------------------//
 // Globals                            //
@@ -488,6 +515,13 @@ bool Globals::may_collide_with ( const Globals & other ) const
 	}
 
 	return false;
+}
+
+ostream & operator<< ( ostream & o, const Globals & gs )
+{
+	o << "\treads:  " << gs.reads  << "\n";
+	o << "\twrites: " << gs.writes << "\n";
+	return o;
 }
 
 //------------------------------------//

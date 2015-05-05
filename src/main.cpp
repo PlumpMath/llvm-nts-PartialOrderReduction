@@ -449,7 +449,7 @@ int main ( int argc, char **argv )
 	}
 
 	llvm2nts_options opts;
-	opts.thread_poll_size = 3;
+	opts.thread_poll_size = 1;
 
 	const char * file = argv[1];
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
