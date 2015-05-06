@@ -72,6 +72,15 @@ void Task::compute_globals()
 	cout << "Task " << this->name << " uses:\n" << global;
 }
 
+Task::~Task()
+{
+	for ( StateInfo *s : states )
+	{
+		s->st->user_data = nullptr;
+		delete s;
+	}
+}
+
 
 //------------------------------------//
 // Tasks                              //
@@ -88,9 +97,24 @@ Tasks::Tasks ( Nts & n ) :
 
 Tasks::~Tasks()
 {
+	delete idle_worker_task;
 	for ( Task * t : tasks )
 	{
 		delete t;
+	}
+
+	// Delete TransitionInfo
+	for ( const BasicNts * bn : toplevel_bnts )
+	{
+		for ( Transition * t : bn->transitions() )
+		{
+			if ( !t->user_data )
+				continue;
+
+			TransitionInfo * ti = static_cast < TransitionInfo * > ( t->user_data );
+			t->user_data = nullptr;
+			delete ti;
+		}
 	}
 }
 

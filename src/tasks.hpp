@@ -142,8 +142,7 @@ struct StateInfo;
 struct Task
 {
 	const std::string name;
-	// TODO: why list?
-	std::list < StateInfo * > states;
+	std::vector < StateInfo * > states;
 	Globals global;
 
 	std::vector < StateInfo * > initial_states;
@@ -154,6 +153,7 @@ struct Task
 
 
 	Task ( std::string name );
+	~Task();
 
 #if 0
 	// Set of tasks, which can be caused to run directly by this task.

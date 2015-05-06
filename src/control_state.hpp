@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <ostream>
+#include <memory>         // std::unique_ptr
 #include <vector>
 #include <unordered_set>
 #include <set>
@@ -117,7 +118,9 @@ struct ControlState
 	 */
 	std::vector < CFGEdge > next;
 
-	ControlState() { ; }
+	nts::State * nts_state;
+
+	ControlState() { nts_state = nullptr ; }
 	ControlState ( const ControlState & ) = delete;
 	ControlState ( ControlState && ) = delete;
 
@@ -129,6 +132,9 @@ struct ControlState
 	//ControlState * on_stack ( ControlState & st ) const;
 
 	void print ( std::ostream & o ) const;
+
+
+	void create_nts_state ( std::string name );
 
 	static size_t calculate_hash ( const ControlState & cs );
 	static size_t calculate_hash_p ( const ControlState * cs );
@@ -165,6 +171,8 @@ using EdgeVisitorGenerator = std::function < IEdgeVisitor * ( ControlFlowGraph &
 class ControlFlowGraph
 {
 	private:
+		const nts::Nts & original_nts;
+
 		std::unordered_set <
 			ControlState *,
 			std::function < size_t (const ControlState *) >,
@@ -179,7 +187,7 @@ class ControlFlowGraph
 		// If not null, current->di.st == On_stack
 		ControlState * current;
 
-		ControlFlowGraph();
+		ControlFlowGraph ( const nts::Nts & orig_nts );
 
 
 		void explore ( ControlState * cs, unsigned int pid );
@@ -191,6 +199,8 @@ class ControlFlowGraph
 		bool explore_next_edge();
 
 		IEdgeVisitor * _edge_visitor;
+
+		class NtsGenerator;
 
 	public:
 
@@ -214,6 +224,8 @@ class ControlFlowGraph
 		ControlState & insert_state ( ControlState & cs );
 
 		static ControlFlowGraph * build ( const nts::Nts & n, const EdgeVisitorGenerator & g );
+
+		std::unique_ptr < nts::Nts > compute_nts();
 };
 
 struct SimpleVisitor : public IEdgeVisitor

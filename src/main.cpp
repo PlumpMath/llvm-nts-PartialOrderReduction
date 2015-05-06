@@ -180,6 +180,8 @@ set < Task * > tasks_using_variable ( Variable & v )
 	return tasks;
 }
 
+#if 0
+
 struct PartialOrderReduction
 {
 	Nts & n;
@@ -238,6 +240,8 @@ PartialOrderReduction::~PartialOrderReduction()
 
 	delete tasks;
 }
+
+#endif
 
 #if 0
 bool PartialOrderReduction::can_be_used (
@@ -351,7 +355,6 @@ void PartialOrderReduction::calc_variable_users()
 	
 }
 
-#endif
 
 void PartialOrderReduction::split_to_tasks()
 {
@@ -366,6 +369,8 @@ unique_ptr < Nts * > reduct ( Nts & n )
 
 	return nullptr;
 }
+#endif
+
 #if 0
 unique_ptr < Nts * > serialize_simple ( Nts & n )
 {
@@ -419,12 +424,13 @@ enum class SerializationMode
 	PartialOrderReduction
 };
 
-unique_ptr < Nts * > serialize ( Nts & n, SerializationMode mode )
+unique_ptr < Nts > serialize ( Nts & n, SerializationMode mode )
 {
 	POVisitor::generator g ( n );
 	ControlFlowGraph * cfg = ControlFlowGraph::build ( n, g /* SimpleVisitor_generator */ );
+	unique_ptr < Nts > result = cfg->compute_nts();
 	delete cfg;
-	return nullptr;
+	return result;
 #if 0
 	switch ( mode )
 	{
@@ -455,12 +461,15 @@ int main ( int argc, char **argv )
 	unique_ptr < Nts > nts = llvm_file_to_nts ( file, & opts );
 	inline_calls_simple ( *nts );
 	cout << *nts;
-	unique_ptr < Nts * > result = serialize (
+	unique_ptr < Nts > result = serialize (
 			* nts,
 			SerializationMode::Simple
 	);
 	if ( result )
+	{
+		cout << "** Serialized:\n";
 		cout << * result;
+	}
 
 	cout << "done\n";
 	return 0;

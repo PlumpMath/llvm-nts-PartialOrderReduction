@@ -4,6 +4,10 @@
 #include <regex>
 #include <utility>
 
+#include <libNTS/nts.hpp>
+#include <libNTS/inliner.hpp>
+#include <libNTS/sugar.hpp>
+
 #include "tasks.hpp"
 #include "control_state.hpp"
 
@@ -13,9 +17,13 @@ using std::logic_error;
 using std::ostream;
 using std::cout;
 using std::size_t;
+using std::string;
+using std::to_string;
+using std::unique_ptr;
 using std::vector;
 
 using namespace nts;
+using namespace nts::sugar;
 
 //------------------------------------//
 // ProcessState                       //
@@ -37,10 +45,11 @@ bool ProcessState::operator!= ( const ProcessState & other ) const
 // from http://stackoverflow.com/a/21062236
 template<typename Tval>
 struct MyTemplatePointerHash1 {
-	    size_t operator()(const Tval* val) const {
-			        static const size_t shift = (size_t)log2(1 + sizeof(Tval));
-					        return (size_t)(val) >> shift;
-							    }
+	    size_t operator()(const Tval* val) const
+		{
+			static const size_t shift = (size_t)log2(1 + sizeof(Tval));
+			return (size_t)(val) >> shift;
+		}
 };
 
 size_t ProcessState::calculate_hash ( const ProcessState & st )
@@ -142,6 +151,37 @@ size_t ControlState::calculate_hash_p ( const ControlState * cs )
 	return h;
 }
 
+void ControlState::create_nts_state ( string name )
+{
+	if ( nts_state )
+		throw std::logic_error ( "Already have nts state" );
+
+	nts_state = new State ( move ( name ) );
+	// Add some annotations
+	
+	std::stringstream ss;
+	ss << "( ";
+	unsigned int count = states.size();
+	for ( const ProcessState & ps : states )
+	{
+		--count;
+		AnnotString * as = find_annot_origin ( ps.bnts_state->annotations );
+		if ( ! as )
+			ss << "-";
+		else
+			ss << as->value;
+		
+		if ( count != 0 )
+			ss << " | ";
+	}
+
+	ss << " )";
+
+	AnnotString * as = new AnnotString ( "origin ", ss.str());
+	//cout << "it was named: " << as->value << "\n";
+	as->insert_to ( nts_state->annotations );
+}
+
 #if 0
 
 regex origin_is_initial_thread_create ( "^([a-zA-Z]+\\:[0-9]+\\:)*__thread_create\\:[0-9]+" );
@@ -204,8 +244,9 @@ ControlState::DFSInfo::DFSInfo()
 //------------------------------------//
 
 
-ControlFlowGraph::ControlFlowGraph() :
-	states (1000, ControlState::calculate_hash_p) 
+ControlFlowGraph::ControlFlowGraph ( const Nts & orig_nts ) :
+	original_nts ( orig_nts ),
+	states (1000, ControlState::calculate_hash_p)
 {
 	;
 }
@@ -286,7 +327,7 @@ ControlState & ControlFlowGraph::insert_state ( ControlState & cs )
 
 ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGenerator & gen )
 {
-	ControlFlowGraph * cfg = new ControlFlowGraph();
+	ControlFlowGraph * cfg = new ControlFlowGraph ( n );
 	cfg->_edge_visitor =  gen ( *cfg );
 
 	ControlState * initial = initial_control_state ( n );
@@ -303,6 +344,336 @@ ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGen
 		 << " edges: " << cfg->edges.size() << "\n";
 
 	return cfg;
+}
+
+// ComputeNts variable information
+// original variable points to this
+struct CNVariableInfo
+{
+	bool global; //< this was a global variable
+
+	// For local variables. Indexed by thread id.
+	// (there may be multiple copies of the same variable ).
+	vector < Variable * > instances;
+
+	// For global variables
+	Variable * var;
+
+	// Constructor for global variables
+	CNVariableInfo ();
+
+	// Constructor for local variables
+	CNVariableInfo ( unsigned int processes );
+};
+
+CNVariableInfo::CNVariableInfo ( unsigned int processes ) :
+	global ( false )
+{
+	instances.resize ( processes );
+}
+
+CNVariableInfo::CNVariableInfo ()
+	: global ( true )
+{
+	;
+}
+
+/**
+ * @pre  Q1 Given VariableUse shall not be empty
+ *       Q2 u->user_data must point to valid CNVariableInfo
+ */
+void variable_use_switch_by_cnvariableinfo ( const CFGEdge * e,  VariableUse & u )
+{
+	if ( ! u->user_data )
+		return;
+
+	CNVariableInfo * i = static_cast < CNVariableInfo * > ( u->user_data );
+	Variable * dest;
+
+	if ( i->global )
+		dest = i->var;
+	else
+		dest = i->instances.at ( e->pid );
+
+	u.set ( dest );
+}
+
+/**
+ * @brief Returns copy of given variable with prefixed 'origin'
+ * @pre  Q1 Given variable must have 'origin' annotation
+ */
+Variable & clone_with_prefix ( const Variable & v, const string & prefix )
+{
+	Variable * cl = v.clone();
+	AnnotString * as = find_annot_origin ( cl->annotations );
+	if ( ! as )
+		throw logic_error ( "Precondition Q1 is not met" );
+	as->value = prefix + as->value;
+	return *cl;
+}
+
+/**
+ * @brief Clones local variable to given thread
+ * @pre  Q1 Variable must have 'origin' annotation
+ *       Q2 Variable must have associated valid 'CNVariableInfo' structure
+ */
+Variable & clone_to_thread ( const Variable & v, string bnts_name, unsigned int tid )
+{
+	CNVariableInfo * cni = static_cast < CNVariableInfo * > ( v.user_data );
+	//@ assert cni->global == false
+	
+	// Resulting 'origin' have form:
+	// "name_of_bnts [ thread_id ] :: original_name"
+	string prefix = move ( bnts_name ) + " [ " + to_string ( tid ) + " ] :: ";
+	Variable & cl = clone_with_prefix ( v, prefix );
+	cni->instances.at(tid) = & cl;
+	return cl;
+}
+
+
+class ControlFlowGraph::NtsGenerator
+{
+	private:
+		const ControlFlowGraph & _cfg;
+
+		Nts      * dest_nts;
+		BasicNts * dest_bn;
+
+		NtsGenerator ( const ControlFlowGraph & cfg );
+		void generate_nts();
+		void clone_local_variables();
+		void clone_global_variables();
+		void create_states();
+
+		/**
+		 * @pre  Q1: destination Nts have all variables
+		 *       Q2: all variables from source nts points to
+		 *           variables in destination nts (through CNVariableInfo).
+	     */
+		void create_edges();
+
+
+		/**
+		 * @pre  Q1: Every ControlState in ControlFlowGraph
+		 *           points to some state in dest_bn.
+		 *           
+		 * @post R1: Every ControlState have its nts_state null.
+		 */
+		void clear_state_mapping();
+
+		/**
+		 * @pre  Q1: Every variable in dest_nts,
+		 *           including local variables (in dest_bn),
+		 *           should point to valid, heap-allocated CNVariableInfo.
+		 *
+		 * @poot Q1: Every variable has its user_data null.
+		 */
+		void clear_variable_info();
+
+	public:
+		static unique_ptr < Nts > generate ( const ControlFlowGraph & cfg );
+};
+
+ControlFlowGraph::NtsGenerator::NtsGenerator ( const ControlFlowGraph & cfg ) :
+	_cfg ( cfg )
+{
+	dest_nts = nullptr;
+	dest_bn = nullptr;
+}
+
+unique_ptr < Nts > ControlFlowGraph::NtsGenerator::generate ( const ControlFlowGraph & cfg )
+{
+	NtsGenerator g ( cfg );
+	g.generate_nts();
+
+	unique_ptr < Nts > n ( g.dest_nts );
+	g.dest_nts = nullptr;
+	g.dest_bn = nullptr;
+	return n;
+}
+
+void ControlFlowGraph::NtsGenerator::generate_nts()
+{
+	dest_nts = new Nts ( "sequenced" );
+	dest_bn  = new BasicNts ( "main " );
+	dest_bn->insert_to ( *dest_nts );
+
+	Instance * i = new Instance ( dest_bn, 1 );
+	i->insert_to ( *dest_nts );
+
+	clone_local_variables();
+	clone_global_variables();
+	create_states();
+	create_edges();
+
+	clear_state_mapping();
+	clear_variable_info();
+}
+
+/**
+ * @brief Clones local variables for every thread
+ * @pre  Q1 Given nts must be flat
+ *       Q2 Every local variable has its user_data null.
+ *       Q3 Every local variable must have 'origin' annotation
+ *
+ * @post R1 Every local variable's user_data
+ *          point to CNVariableInfo.
+ *       R2 Every variable from CNVariableInfo 
+ *          is owned by given dest_bn.
+ *          
+ */
+void ControlFlowGraph::NtsGenerator::clone_local_variables ( )
+{
+	const Nts & orig = _cfg.original_nts;
+	const unsigned int n_threads = orig.n_threads();
+
+	unsigned int var_id = 0;
+	unsigned int thread_id = 0;
+	for ( Instance * inst : orig.instances () )
+	{
+		const string & bnts_name = inst->basic_nts().name;
+
+		for ( Variable * v : inst->basic_nts().variables() )
+		{
+			if ( !v->user_data )
+				v->user_data = ( void * ) new CNVariableInfo ( n_threads );
+
+			for ( unsigned int i = 0; i < inst->n; i++ )
+			{
+				Variable & cl = clone_to_thread ( *v, bnts_name, thread_id + i);
+				cl.name = string ( "var_" ) + to_string ( var_id++ );
+				cl.insert_to ( *dest_bn );
+			}	
+		}
+
+		thread_id += inst->n;
+	}
+}
+
+/**
+ *  Btw also creates mapping from CFG states to Nts states
+ */
+void ControlFlowGraph::NtsGenerator::create_states()
+{
+	unsigned int st_id = 0;
+	for ( ControlState * s : _cfg.states )
+	{
+		s->create_nts_state ( string ( "st_" ) + to_string ( st_id ) );
+		s->nts_state->insert_to ( *dest_bn );
+		st_id++;
+	}
+
+	 // TODO: Initial state, final state, error states.
+}
+
+void ControlFlowGraph::NtsGenerator::clone_global_variables()
+{
+	unsigned int gvar_id = 0;
+	for ( Variable * v :_cfg.original_nts.variables() )
+	{
+		// We keep its annotations as they are
+		Variable * cl = v->clone();
+		cl->insert_to ( *dest_nts );
+		cl->name = string ( "gvar_" ) + to_string ( gvar_id++ );
+
+		CNVariableInfo * i = new CNVariableInfo ( ); // global variable
+		i->var = cl;
+		v->user_data = ( void * ) i;
+	}
+}
+
+void ControlFlowGraph::NtsGenerator::create_edges()
+{
+	for ( const CFGEdge * e : _cfg.edges )
+	{
+		State * from;
+		if ( e->from )
+			from = e->from->nts_state;
+		else
+			from = _cfg.initial->nts_state;
+
+		if ( !from )
+			throw logic_error ( "State not found" );
+
+		TransitionRule * tr = e->t->rule().clone();
+	
+		// It seems like after first calling of lambda, the capture data are cleaned
+		// So we have to put that lambda into some holder, like VariableUse::visitor
+		VariableUse::visitor visitor = [e] ( VariableUse & u )
+		{
+			variable_use_switch_by_cnvariableinfo ( e, u );
+		};
+
+		visit_variable_uses modifier ( visitor );
+		modifier.visit ( *tr );
+
+		Transition & t = ( *from ->* *e->to.nts_state ) ( *tr );
+		t.insert_to ( *dest_bn );
+	}
+}
+
+void ControlFlowGraph::NtsGenerator::clear_state_mapping()
+{
+	for ( ControlState * cs : _cfg.states )
+	{
+		if ( !cs->nts_state )
+			throw logic_error ( "Precondition Q1 failed" );
+
+		cs->nts_state = nullptr;
+	}
+}
+
+void for_variables_owned_by ( const BasicNts & n, const std::function < void ( Variable * v ) > f )
+{
+	for ( Variable * v : n.variables() )
+		f ( v );
+
+	for ( Variable * v : n.params_out() )
+		f ( v );
+
+	for ( Variable * v : n.params_in() )
+		f ( v );
+
+	for ( Variable * v : n.pars() )
+		f ( v );
+}
+
+void for_variables_owned_by ( const Nts & n, const std::function < void ( Variable * v ) > f )
+{
+	for ( Variable * v : n.variables() )
+		f ( v );
+
+	for ( Variable * v : n.parameters() )
+		f ( v );
+}
+
+void ControlFlowGraph::NtsGenerator::clear_variable_info()
+{
+	const std::function < void ( Variable * v ) > deleter =
+	[] ( Variable * v )
+	{
+		if ( !v->user_data )
+		{
+			cout << "Warning: no user_data on " << v->name << "\n";
+			return;
+		}
+
+		CNVariableInfo * i = static_cast < CNVariableInfo * > ( v->user_data );
+		v->user_data = nullptr;
+		delete i;
+	};
+
+	for_variables_owned_by ( _cfg.original_nts,  deleter );
+	for ( BasicNts * n : _cfg.original_nts.basic_ntses() )
+		for_variables_owned_by ( *n, deleter );
+}
+
+/**
+ * @pre Visitor must have cleaned all its data
+ */
+unique_ptr < Nts > ControlFlowGraph::compute_nts()
+{
+	return NtsGenerator::generate ( *this );
 }
 
 //------------------------------------//
