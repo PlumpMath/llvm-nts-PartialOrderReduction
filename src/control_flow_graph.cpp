@@ -239,6 +239,7 @@ bool ControlFlowGraph::explore_next_edge()
 	// now current->di.visited_next < current->next.size()
 	// So visit next
 	CFGEdge & edge = current->next[ current->di.visited_next ];
+	// After this point, nobody should should modify current->next
 	current->di.visited_next++;
 
 	edge.to.di.reached_from = current;
@@ -302,6 +303,8 @@ ControlFlowGraph * ControlFlowGraph::build ( const Nts & n, const EdgeVisitorGen
 	ControlState * initial = initial_control_state ( n );
 	cfg->states.insert ( initial );
 	(*cfg->_edge_visitor) ( CFGEdge ( nullptr, *initial, nullptr, 0 ) );
+	initial->di.st = ControlState::DFSInfo::St::On_stack;
+
 	cfg->current = initial;
 
 	while ( cfg->explore_next_edge() )
@@ -701,6 +704,7 @@ void SimpleVisitor::explore ( ControlState & cs )
 		explore ( cs, i );
 	}
 }
+
 void SimpleVisitor::explore ( ControlState & cs, unsigned int pid )
 {
 	const ProcessState & s = cs.states[pid];

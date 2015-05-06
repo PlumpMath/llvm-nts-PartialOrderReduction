@@ -54,7 +54,7 @@ int main ( int argc, char **argv )
 	cout << *nts;
 	unique_ptr < Nts > result = serialize (
 			* nts,
-			SerializationMode::PartialOrderReduction
+			SerializationMode::Simple
 	);
 	if ( result )
 	{
