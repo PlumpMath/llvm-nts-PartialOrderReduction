@@ -12,6 +12,9 @@
 
 #include <libNTS/nts.hpp>
 
+namespace nts {
+namespace seq {
+
 /**
  * @brief Represents set of global variables, which can be modified by something.
  *
@@ -265,6 +268,7 @@ struct GlobalVariableInfo
 
 nts::AnnotString * find_annot_origin ( nts::Annotations & ants );
 
-
+} // namespace seq
+} // namespace nts
 
 #endif // POR_TASKS_HPP

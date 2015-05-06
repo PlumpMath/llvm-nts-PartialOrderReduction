@@ -25,6 +25,9 @@ using std::vector;
 using namespace nts;
 using namespace nts::sugar;
 
+namespace nts {
+namespace seq {
+
 //------------------------------------//
 // ProcessState                       //
 //------------------------------------//
@@ -886,4 +889,5 @@ void POVisitor::explore ( ControlState & cs )
 }
 
 
-
+} // namespace seq
+} // namespace nts

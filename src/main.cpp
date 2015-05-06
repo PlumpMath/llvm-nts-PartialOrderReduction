@@ -12,6 +12,7 @@ using std::cout;
 using std::unique_ptr;
 
 using namespace nts;
+using namespace nts::seq;
 
 enum class SerializationMode
 {

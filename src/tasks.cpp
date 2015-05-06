@@ -10,7 +10,6 @@
 #include "logic_utils.hpp"
 #include "control_flow_graph.hpp"
 
-using namespace nts;
 
 using std::cout;
 using std::find_if;
@@ -24,6 +23,9 @@ using std::sort;
 using std::string;
 using std::stringstream;
 using std::vector;
+
+namespace nts {
+namespace seq {
 
 AnnotString * find_annot_origin ( Annotations & ants )
 {
@@ -422,4 +424,5 @@ ostream & operator<< ( ostream & o, const Globals & gs )
 	return o;
 }
 
-
+} // namespace seq
+} // namespace nts

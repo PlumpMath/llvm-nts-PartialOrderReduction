@@ -11,6 +11,9 @@
 
 #include <libNTS/nts.hpp>
 
+namespace nts {
+namespace seq {
+
 struct ProcessState
 {
 	/**
@@ -243,5 +246,8 @@ struct POVisitor::generator
 
 	POVisitor * operator() ( ControlFlowGraph & g );
 };
+
+} // namespace seq
+} // namespace nts
 
 #endif // POR_SRC_CONTROL_STATE_HPP

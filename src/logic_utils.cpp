@@ -5,7 +5,8 @@
 #include "logic_utils.hpp"
 
 
-using namespace nts;
+namespace nts {
+namespace seq {
 
 
 bool havoc_in_toplevel_conjunction ( const Formula & f )
@@ -57,3 +58,6 @@ Globals used_global_variables ( const Nts & n, const Transition & t )
 
 	return g;
 }
+
+} // namespace seq
+} // namespace nts
