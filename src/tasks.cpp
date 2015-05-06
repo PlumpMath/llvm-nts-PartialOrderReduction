@@ -8,7 +8,7 @@
 
 #include "tasks.hpp"
 #include "logic_utils.hpp"
-#include "control_state.hpp"
+#include "control_flow_graph.hpp"
 
 using namespace nts;
 

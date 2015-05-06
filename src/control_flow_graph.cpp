@@ -9,7 +9,7 @@
 #include <libNTS/sugar.hpp>
 
 #include "tasks.hpp"
-#include "control_state.hpp"
+#include "control_flow_graph.hpp"
 
 using std::hash;
 using std::regex;
@@ -106,24 +106,6 @@ void ControlState::print ( ostream & o ) const
 	o << states.back().bnts_state->name << " )";
 }
 
-#if 0
-ControlState * ControlState::on_stack ( ControlState & other ) const
-{
-	ControlState * st = & other;
-	while ( st )
-	{
-		if ( *st == *this )
-		{
-			return st;
-		}
-
-		st = st->reached_from;
-	}
-
-	return nullptr;
-}
-#endif
-
 // from http://stackoverflow.com/a/2595226
 template <class T>
 inline void hash_combine(std::size_t& seed, const T& v)
@@ -181,25 +163,6 @@ void ControlState::create_nts_state ( string name )
 	//cout << "it was named: " << as->value << "\n";
 	as->insert_to ( nts_state->annotations );
 }
-
-#if 0
-
-regex origin_is_initial_thread_create ( "^([a-zA-Z]+\\:[0-9]+\\:)*__thread_create\\:[0-9]+" );
-
-bool calls_thread_create ( const Transition & t )
-{
-	const AnnotString * as = find_annot_origin ( t.to().annotations );
-	// Example:
-	// some_function:1:__thread_create:0:si
-	// toplevel called some_function at least twice,
-	// and now we are in second call.
-	// Then some_function called __thread__create first time,
-	// and we are in its initial state (named si)
-	
-	return std::regex_search ( as->value, origin_is_initial_thread_create );
-}
-
-#endif
 
 ControlState * initial_control_state ( const Nts & n )
 {

@@ -11,42 +11,12 @@
 
 #include <libNTS/nts.hpp>
 
-
-/**
- * Notes about some explicit-state information
- * ===
- * In current implementation, the explicit knowledge of values
- * is based in knowing, how our parellel model works.
- * In particular, we assume following:
- *
- * 1) If an instance does not use 'main' BasicNts,
- *    it represents worker threads.
- *
- * 2) BasicNts with name '__thread_create' takes first
- *    unused (worker) thread and assigns to it the task
- *    with given number.
- *
- * 3) We have somehow numbered tasks.
- *
- * 4) We know the initial and final states of tasks.
- *
- * 5) We know what variables __thread_pool_lock and __thread_pool_selected
- *    means and that only __thread_create and idle task
- *    can modify them.
- *
- *
- *
- * Later, we may like to use some solver to track these variables
- * in some less ad-hoc manner. But I think that actual solution
- * would still be more efficient.
- */
-
-
 struct ProcessState
 {
 	/**
 	 * If bnts_state == null,
 	 * this proccess is not running any task.
+	 * But this should not happen in current implementation.
 	 *
 	 * Note that main process is always running main task.
 	 */
