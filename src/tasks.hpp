@@ -68,6 +68,8 @@ struct Globals
 	 * read or modified by one Globals and modified by second Globals.
 	 */
 	bool may_collide_with ( const Globals & other ) const;
+
+	Globals & operator= ( const Globals & orig );
 };
 
 std::ostream & operator<< ( std::ostream & o, const Globals & gs );
@@ -91,32 +93,6 @@ struct TransitionInfo
 	Globals global;
 };
 
-
-struct StateInfo;
-
-struct ControlState;
-using NextStateFunction = std::function < ControlState * ( const ControlState *, unsigned int ) >;
-
-struct InlinedProcedureCall
-{
-	TransitionInfo * transition;
-	StateInfo * final_state;
-	const NextStateFunction & next;
-};
-
-struct InlinedProcedureCalls
-{
-	std::map < const StateInfo *, InlinedProcedureCall * > calls;
-
-	/**
-	 * If it is possible to simulate transition for proccess 'pid',
-	 * then returns new control state.
-	 * If not, returns null.
-	 *
-	 */
-	ControlState * next ( const ControlState * orig, unsigned int pid ) const;
-};
-
 struct StateInfo;
 
 // Task is a basic organisation unit.
@@ -131,8 +107,8 @@ struct StateInfo;
  *   Each state, which through its StateInfo points to this task,
  *   has its StateInfo once in this list.
  *
- * predicate "globals_computed":
- *   global.reads and global.writes are computed
+ * predicate "direct_globals_computed":
+ *   direct_global.reads and direct_global.writes are computed
  *
  * predicate "boundary_states_computed"
  *   .initial points to initial state,
@@ -143,7 +119,25 @@ struct Task
 {
 	const std::string name;
 	std::vector < StateInfo * > states;
-	Globals global;
+
+	/**
+	 * Set of global variables, which are used directly
+	 * by this task.
+	 */
+	Globals direct_global;
+
+	/**
+	 * Set of global variables, which are used
+	 * directly by this task or indirectly by some task,
+	 * which may be activated (directly on indirectly)
+	 * by this task.
+	 *
+	 * We require that if some global variable is not
+	 * in this set, then running this task and
+	 * tasks activated by this task does not use that variable.
+	 */
+
+	Globals transitive_global;
 
 	std::vector < StateInfo * > initial_states;
 	std::vector < StateInfo * > final_states;
@@ -155,22 +149,14 @@ struct Task
 	Task ( std::string name );
 	~Task();
 
-#if 0
-	// Set of tasks, which can be caused to run directly by this task.
-	std::set < Task * > tasks_may_be_run;
-
-	// Which task can activate this task?
-	std::set < Task * > can_be_run_by;
-#endif
-
 	/**
 	 * @pre  Q1: "states_assigned" must be true
 	 *       Q2: Each transition must have associated its TransitionInfo.
 	 *       Q3: Each transition must have computed its globals.
 	 *
-	 * @post R1: "globals_computed" is true.
+	 * @post R1: "direct_globals_computed" is true.
 	 */
-	void compute_globals();
+	void compute_direct_globals();
 };
 
 class Tasks
@@ -203,30 +189,27 @@ class Tasks
 		void print_transition_info ( std::ostream & o ) const;
 
 		/**
-		 * @pre   Q1: Every transition has associated computed TransitionInfo.
-		 *        Q2: Every state has associated computed StateInfo.
-		 *            In particular, every state belongs to one task.
-		 *  @post R1: Every task has computed its structure.
+		 * @pre  Q1: Every transition has associated computed TransitionInfo.
+		 *       Q2: Every state has associated computed StateInfo.
+		 *           In particular, every state belongs to one task.
+		 * @post R1: Every task has computed its structure.
 		 */
 		void compute_task_structure();
 
 		/**
-		 * @pre Q1: Postconditions POST_1 and POST_2 of split_to_task()
-		 *          must hold, i.e. each state belongs to task
-		 *          and each task has list of its states.
+		 * @brief Having information about all task's direct globals,
+		 *        calculate their indirect globals.
 		 *
-		 * @post R1: For each task T in .tasks,
-		 *           boundary_states_computed ( T ).
-		 *       R2: Each task have assigned its number.
+		 * This method has a key impact to efficiency of implemented
+		 * Partial Order Reduction. The smaller will be the set
+		 * of indirect global variables, the more times
+		 * it will use some smaller ample set to explore.
 		 *
+		 * In current implementation, this is very trivial:
+		 * We do not assume anything, so each task may activate
+		 * every task (including itself).
 		 */
-		void find_tasks_initial_final_states();
-
-		/**
-		 * @pre  Tasks must have assigned their number
-		 * @post Task with id 'i' is placed '.tasks[i]'
-		 */
-		void sort_tasks_by_id();
+		void compute_transitive_globals();
 
 		void split_to_tasks();
 

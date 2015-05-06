@@ -48,14 +48,13 @@ AnnotString * find_annot_origin ( Annotations & ants )
 Task::Task ( string name ) :
 	name ( move ( name ) )
 {
-	cout << "new task: '" << this->name << "'\n";
-	has_number = false;
+	;
 }
 
-void Task::compute_globals()
+void Task::compute_direct_globals()
 {
-	global.reads.clear();
-	global.writes.clear();
+	direct_global.reads.clear();
+	direct_global.writes.clear();
 
 	for ( StateInfo * si : states )
 	{
@@ -65,11 +64,11 @@ void Task::compute_globals()
 				throw logic_error ( "Precondition Q2 failed" );
 
 			TransitionInfo * ti = static_cast < TransitionInfo * > ( t->user_data );
-			global.union_with ( ti->global );
+			direct_global.union_with ( ti->global );
 		}
 	}
 
-	cout << "Task " << this->name << " uses:\n" << global;
+	cout << "Task " << this->name << " uses:\n" << direct_global;
 }
 
 Task::~Task()
@@ -91,13 +90,12 @@ Tasks::Tasks ( Nts & n ) :
 {
 	main_task = nullptr;
 	idle_worker_task = new Task ( "idle_worker_task" );
-	//tasks.push_back ( idle_worker_task );
+	tasks.push_back ( idle_worker_task );
 	// Do not add it to map - there could be some task with the same name
 }
 
 Tasks::~Tasks()
 {
-	delete idle_worker_task;
 	for ( Task * t : tasks )
 	{
 		delete t;
@@ -117,6 +115,17 @@ Tasks::~Tasks()
 		}
 	}
 }
+
+void Tasks::compute_transitive_globals()
+{
+	Globals all_gs;
+	for ( Task * t : tasks )
+		all_gs.union_with ( t->direct_global );
+
+	for ( Task * t : tasks )
+		t->transitive_global = all_gs;
+
+};
 
 void Tasks::calculate_toplevel_bnts()
 {
@@ -202,150 +211,9 @@ void Tasks::split_to_tasks ( BasicNts & bn, bool split_by_annot )
 	}
 }
 
-void Tasks::find_tasks_initial_final_states()
-{
-	// Initial state of task T is some state Si such that
-	// there is a state from idle worker Sw such that
-	// there is a transition Sw -> Si.
-	//
-	// Conversely, final state of task T is state Sf s.t.
-	// exists state Sw in idle worker s.t.
-	// there is a transition Sf -> Sw.
-	
-	for ( StateInfo * si : idle_worker_task->states )
-	{
-		//@ assert si->t == idle_worker_task;
-
-		State * st = si->st;
-
-		for ( const Transition * t : st->incoming() )
-		{
-			const State & from = t->from();
-			auto fri = static_cast < StateInfo * > ( from.user_data ) ;
-			
-
-			// Transition from some task to idle_worker_task
-			if ( fri->t != idle_worker_task )
-			{
-				cout << "Final state of task "
-					 << fri->t->name
-					 << " is "
-					 << from.name << "\n";
-
-				fri->t->final_states.push_back ( fri );
-			}
-		}
-
-		for ( const Transition *t : st->outgoing() )
-		{
-			const State & to = t->to();
-			auto toi = static_cast < StateInfo * > ( to.user_data );
-
-			if ( toi->t != idle_worker_task )
-			{	
-				cout << "Initial state of task "
-					 << toi->t->name
-					 << " is "
-					 << to.name << "\n";
-
-				toi->t->initial_states.push_back ( toi );
-
-				// HACK: we know that 'from' state
-				// should have been named 's_running_X',
-				// where X is the number of task
-				// This name should be preserved in annotations
-				AnnotString * as = find_annot_origin ( t->from().annotations );
-				if ( !as )
-					throw runtime_error ( "Missing 'origin' annotation" );
-
-				string prefix ( "s_running_" );
-				if ( as->value.compare ( 0, prefix.length(), prefix ) )
-					throw runtime_error ( "Source state does not have 's_running_' prefix" );
-
-				stringstream ss ( as->value.substr ( prefix.length() ) );
-				unsigned int task_id;
-				ss >> task_id;
-				std::cout << "Task id: " << task_id << "\n";
-
-				if ( toi->t->has_number && toi->t->number != task_id )
-					throw runtime_error ( "Two IDs for one task?" );
-
-				if ( task_id == 0 )
-					throw runtime_error ( "ID 0 is reserved for main task" );
-
-				toi->t->number = task_id;
-				toi->t->has_number = true;
-
-			}
-		}
-	}
-
-	// One more thing: main task is instantiated directly,
-	// so there is no transition from worker to main task.
-	// => we have find it
-	if ( !main_task )
-		return;
-
-	main_task->has_number = true;
-	main_task->number = 0;
-
-	for ( const BasicNts * bn : toplevel_bnts )
-	{
-		if ( bn->name == main_nts_name )
-		{
-			for ( const State * s : bn->states() )
-			{
-				auto si = static_cast < StateInfo * > ( s->user_data );
-
-				if ( s->is_initial() )
-				{
-					cout << "Initial state of main task: " << s->name << "\n";
-					main_task->initial_states.push_back ( si );
-				}
-
-				if ( s->is_final() )
-				{
-					cout << "Final state of main task: " << s->name << "\n";
-					main_task->final_states.push_back ( si );
-				}
-			}
-
-			break;
-		}
-	}
-}
-
-void Tasks::sort_tasks_by_id()
-{
-	// TODO: Check every task has ID
-	for ( Task * t : tasks )
-	{
-		if ( !t->has_number )
-		{
-			cout << "Task " << t->name << "does not have id\n" ;
-			throw logic_error ( "Precondition failed" );
-		}
-	}
-	
-	auto cmp = []( const Task * t1, const Task * t2 ) -> bool
-	{
-		return t1->number < t2->number;
-	};
-
-	sort ( tasks.begin(), tasks.end(), cmp );
-
-	// Check postcondition
-	for ( unsigned int i = 0; i < tasks.size(); i++ )
-	{
-		cout << i << ": task " << tasks[i]->number << " (" << tasks[i]->name << ")\n";
-		if ( tasks[i]->number != i )
-			throw runtime_error ( "Task numbering problem" );
-	}
-}
-
 void Tasks::compute_transition_info()
 {
-	for ( /* const */ BasicNts * bn : toplevel_bnts )
+	for ( const BasicNts * bn : toplevel_bnts )
 	{
 		for ( Transition * t : bn->transitions() )
 		{
@@ -364,7 +232,7 @@ void Tasks::compute_transition_info()
 void Tasks::print_transition_info ( ostream & o ) const
 {
 	o << "** Transitions **\n";
-	for ( /* const */ BasicNts * bn : toplevel_bnts )
+	for ( const BasicNts * bn : toplevel_bnts )
 	{
 		o << "* toplevel " << bn->name << "\n";
 		for ( Transition * t : bn->transitions() )
@@ -395,7 +263,7 @@ void Tasks::compute_task_structure()
 {
 	for ( Task *t : tasks )
 	{
-		t->compute_globals();
+		t->compute_direct_globals();
 	}
 }
 
@@ -416,13 +284,12 @@ Tasks * Tasks::compute_tasks ( nts::Nts & n, const std::string & main_nts )
 	tasks->main_nts_name = main_nts;
 	tasks->calculate_toplevel_bnts();
 	tasks->split_to_tasks();
-	tasks->find_tasks_initial_final_states();
-	tasks->sort_tasks_by_id();
 
 	// Assume R1 is true. Now lets calculate R2
 	tasks->compute_transition_info();
 	//tasks->print_transition_info( cout );
 	tasks->compute_task_structure();
+	tasks->compute_transitive_globals();
 
 	return tasks;
 }
@@ -541,6 +408,13 @@ bool Globals::may_collide_with ( const Globals & other ) const
 	return false;
 }
 
+Globals & Globals::operator= ( const Globals & other )
+{
+	this->writes = other.writes;
+	this->reads  = other.reads;
+	return *this;
+}
+
 ostream & operator<< ( ostream & o, const Globals & gs )
 {
 	o << "\treads:  " << gs.reads  << "\n";
@@ -548,35 +422,4 @@ ostream & operator<< ( ostream & o, const Globals & gs )
 	return o;
 }
 
-//------------------------------------//
-// InlinedProcedureCalls              //
-//------------------------------------//
 
-ControlState * InlinedProcedureCalls::next ( const ControlState *c, unsigned int pid ) const
-{
-	if ( pid >= c->states.size() )
-		throw out_of_range ( "PID too large" );
-
-	const ProcessState & ps = c->states[pid];
-
-	// This thread is not running at all
-	if ( ps.bnts_state == nullptr )
-		return nullptr;
-
-	const StateInfo * si = static_cast < const StateInfo * > ( ps.bnts_state->user_data );
-	auto it = calls.find ( si );
-	if ( it == calls.end() )
-		return nullptr;
-
-	return it->second->next ( c, pid );
-}
-
-//------------------------------------//
-// thread_create()                    //
-//------------------------------------//
-
-ControlState * thread_create_function ( const ControlState *st, unsigned int pid )
-{
-	const ProcessState & ps = st->states[pid];
-	// There should be exactly one 
-}

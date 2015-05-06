@@ -283,6 +283,12 @@ ControlState & ControlFlowGraph::insert_state ( ControlState & cs )
 		states.insert ( & cs );
 		return cs;
 	} else {
+
+		// Caller did not own cs state, because we are the owner.
+		// We have it in our set! We may have deleted our own state :-(
+		if ( &cs == *found)
+			throw logic_error ( "Precondition failed: caller does not own given state" );
+
 		delete & cs;
 		return **found;
 	}
@@ -782,6 +788,8 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		cs_new->states = cs.states; // Copy
 		cs_new->states[pid].bnts_state = & t->to();
 
+		// We want to know whether some of this newly discovered states
+		// is on the search stack.
 		ControlState * next = g.get_state ( *cs_new );
 		if ( next )
 		{
@@ -792,6 +800,9 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 			my_states.push_back ( mystate ( cs_new, true, *t ) );
 		}
 	}
+
+	// Every new state we have just discovered has 'is_my' flag true.
+	// States which does not have 'is_my' flag belong to CFG.
 
 	cout << "process " << pid << " uses following variables:\n";
 	cout << gs;
@@ -812,8 +823,13 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		}
 	}
 
-	// FIXME: Now we assume that no task can cause another task to start.
-	//std::set < Task * > running_tasks;
+	// Compute set of all variables, which can be used
+	// by other process.
+	// Note that in current implementation of Tasks::compute_transitive_globals()
+	// we assume that every task may cause every other task to run.
+	// It means every task's transitive_globals are the same,
+	// so unioning them here looks just like wasted time.
+	// But it will be useful later.
 	Globals other_tasks_globals;
 	for ( unsigned int i = 0; i < cs.states.size(); i++ )
 	{
@@ -823,25 +839,26 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		ProcessState & ps = cs.states[i];
 		StateInfo * si = static_cast < StateInfo * > ( ps.bnts_state->user_data );
 
-		//running_tasks.insert ( si->t );
-		other_tasks_globals.union_with ( si->t->global );
+		other_tasks_globals.union_with ( si->t->transitive_global );
 	}
 
 	if ( other_tasks_globals.may_collide_with ( gs ) )
 		return false;
 
-	cout << "other processes use:\n" << other_tasks_globals;
+	cout << "other processes may use:\n" << other_tasks_globals;
 
 	cout << "Possible ample set: pid " << pid << "\n";
 
-	// TODO: add it
-	//return false;
-	
 	while ( !my_states.empty() )
 	{
 		mystate & ms = my_states.back();
-		cs.next.push_back ( CFGEdge ( &cs, *ms.st, & ms.t, pid ) );
-		g.insert_state ( * ms.st );
+		ControlState * s;
+		if ( ms.is_my )
+			s = & g.insert_state ( *ms.st );
+		else
+			s = ms.st;
+
+		cs.next.push_back ( CFGEdge ( &cs, *s, & ms.t, pid ) );
 		ms.st = nullptr;
 		my_states.pop_back();
 	}
