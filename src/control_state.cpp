@@ -177,7 +177,7 @@ void ControlState::create_nts_state ( string name )
 
 	ss << " )";
 
-	AnnotString * as = new AnnotString ( "origin ", ss.str());
+	AnnotString * as = new AnnotString ( "origin", ss.str());
 	//cout << "it was named: " << as->value << "\n";
 	as->insert_to ( nts_state->annotations );
 }
