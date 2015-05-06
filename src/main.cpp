@@ -3,20 +3,15 @@
 
 #include <libNTS/nts.hpp>
 #include <libNTS/inliner.hpp>
-#include <libNTS/variables.hpp>
 
 #include <llvm2nts/llvm2nts.hpp>
 
-#include "tasks.hpp"
-#include "logic_utils.hpp"
 #include "control_flow_graph.hpp"
 
 using std::cout;
 using std::unique_ptr;
 
 using namespace nts;
-
-
 
 enum class SerializationMode
 {
@@ -26,24 +21,20 @@ enum class SerializationMode
 
 unique_ptr < Nts > serialize ( Nts & n, SerializationMode mode )
 {
-	POVisitor::generator g ( n );
-	ControlFlowGraph * cfg = ControlFlowGraph::build ( n, g /* SimpleVisitor_generator */ );
-	unique_ptr < Nts > result = cfg->compute_nts();
-	delete cfg;
-	return result;
-#if 0
+	ControlFlowGraph * cfg = nullptr;
 	switch ( mode )
 	{
 		case SerializationMode::Simple:
-			return serialize_simple ( n );
+			cfg = ControlFlowGraph::build ( n, SimpleVisitor_generator );
+			break;
 
 		case SerializationMode::PartialOrderReduction:
-			return reduct ( n );
-
-		default:
-			return nullptr;
+			cfg = ControlFlowGraph::build ( n, POVisitor::generator ( n ) );
+			break;
 	}
-#endif
+	unique_ptr < Nts > result = cfg->compute_nts();
+	delete cfg;
+	return result;
 }
 
 int main ( int argc, char **argv )
@@ -63,7 +54,7 @@ int main ( int argc, char **argv )
 	cout << *nts;
 	unique_ptr < Nts > result = serialize (
 			* nts,
-			SerializationMode::Simple
+			SerializationMode::PartialOrderReduction
 	);
 	if ( result )
 	{
