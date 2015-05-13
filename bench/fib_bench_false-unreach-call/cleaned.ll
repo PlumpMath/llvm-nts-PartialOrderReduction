@@ -102,7 +102,7 @@ bb8:                                              ; preds = %bb5, %bb
 
 bb9:                                              ; preds = %bb8
   call void @__VERIFIER_error() #4
-  unreachable
+  br label %bb10                                  ; 'unreachable' inst is not supported
 
 bb10:                                             ; preds = %bb5
   ret i32 0
@@ -117,6 +117,4 @@ attributes #2 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 attributes #3 = { nounwind }
 attributes #4 = { noreturn }
 
-!llvm.ident = !{!0}
 
-!0 = metadata !{metadata !"clang version 3.5.0 (tags/RELEASE_350/final)"}
