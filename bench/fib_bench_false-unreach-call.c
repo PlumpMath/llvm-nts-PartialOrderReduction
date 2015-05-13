@@ -32,7 +32,7 @@ void * t2 ( void* arg )
 	return NULL;
 }
 
-int main ( int argc, char **argv )
+int main ( void )
 {
 	pthread_t id1, id2;
 	pthread_create ( &id1, NULL, t1, NULL );

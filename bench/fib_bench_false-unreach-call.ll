@@ -80,34 +80,30 @@ define i8* @t2(i8* %arg) #1 {
 }
 
 ; Function Attrs: nounwind uwtable
-define i32 @main(i32 %argc, i8** %argv) #1 {
+define i32 @main() #1 {
   %1 = alloca i32, align 4
-  %2 = alloca i32, align 4
-  %3 = alloca i8**, align 8
   %id1 = alloca i64, align 8
   %id2 = alloca i64, align 8
   store i32 0, i32* %1
-  store i32 %argc, i32* %2, align 4
-  store i8** %argv, i8*** %3, align 8
-  %4 = call i32 @pthread_create(i64* %id1, %union.pthread_attr_t* null, i8* (i8*)* @t1, i8* null) #3
-  %5 = call i32 @pthread_create(i64* %id2, %union.pthread_attr_t* null, i8* (i8*)* @t2, i8* null) #3
-  %6 = load i32* @i, align 4
-  %7 = icmp uge i32 %6, 144
-  br i1 %7, label %11, label %8
+  %2 = call i32 @pthread_create(i64* %id1, %union.pthread_attr_t* null, i8* (i8*)* @t1, i8* null) #3
+  %3 = call i32 @pthread_create(i64* %id2, %union.pthread_attr_t* null, i8* (i8*)* @t2, i8* null) #3
+  %4 = load i32* @i, align 4
+  %5 = icmp uge i32 %4, 144
+  br i1 %5, label %9, label %6
 
-; <label>:8                                       ; preds = %0
-  %9 = load i32* @j, align 4
-  %10 = icmp uge i32 %9, 144
-  br i1 %10, label %11, label %13
+; <label>:6                                       ; preds = %0
+  %7 = load i32* @j, align 4
+  %8 = icmp uge i32 %7, 144
+  br i1 %8, label %9, label %11
 
-; <label>:11                                      ; preds = %8, %0
-  br label %12
+; <label>:9                                       ; preds = %6, %0
+  br label %10
 
-; <label>:12                                      ; preds = %11
+; <label>:10                                      ; preds = %9
   call void @__VERIFIER_error() #4
   unreachable
 
-; <label>:13                                      ; preds = %8
+; <label>:11                                      ; preds = %6
   ret i32 0
 }
 
