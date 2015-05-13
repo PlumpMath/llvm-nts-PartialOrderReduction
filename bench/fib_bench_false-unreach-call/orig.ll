@@ -1,5 +1,6 @@
-; This file is based on "fib_bench_false-unreach-call.ll"
-; Some unnecessary parts were manually removed
+; ModuleID = 'orig.c'
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-redhat-linux-gnu"
 
 %union.pthread_attr_t = type { i64, [48 x i8] }
 
@@ -18,7 +19,9 @@ define void @__VERIFIER_error() #0 {
 
 ; Function Attrs: nounwind uwtable
 define i8* @t1(i8* %arg) #1 {
+  %1 = alloca i8*, align 8
   %k = alloca i32, align 4
+  store i8* %arg, i8** %1, align 8
   store i32 0, i32* %k, align 4
   store i32 0, i32* %k, align 4
   br label %2
@@ -47,7 +50,9 @@ define i8* @t1(i8* %arg) #1 {
 
 ; Function Attrs: nounwind uwtable
 define i8* @t2(i8* %arg) #1 {
+  %1 = alloca i8*, align 8
   %k = alloca i32, align 4
+  store i8* %arg, i8** %1, align 8
   store i32 0, i32* %k, align 4
   store i32 0, i32* %k, align 4
   br label %2
@@ -111,4 +116,6 @@ attributes #2 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 attributes #3 = { nounwind }
 attributes #4 = { noreturn }
 
+!llvm.ident = !{!0}
 
+!0 = metadata !{metadata !"clang version 3.5.0 (tags/RELEASE_350/final)"}
