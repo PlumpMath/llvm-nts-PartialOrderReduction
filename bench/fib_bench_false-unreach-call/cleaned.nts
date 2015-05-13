@@ -1,0 +1,132 @@
+nts cleaned.ll;
+g_i : BitVector<32>
+g_j : BitVector<32>
+__thread_pool_lock : BitVector<32>
+__thread_pool_selected[20] : BitVector<32>
+init	( ( g_j = 1 ) && ( g_i = 1 ) );
+instances __thread_pool_routine[20], main[1];
+__VERIFIER_error {
+	_lbb_var : BitVector<16>;
+	initial	st_0_0;
+	final	st_2_1;
+	st_0_0 -> st_1_0 { ( ( _lbb_var' = 0 ) && havoc ( _lbb_var ) ) }
+	st_1_0 -> st_1_0 { ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) }
+	st_2_0 -> st_2_1 { havoc (  ) }
+}
+
+t1 {
+	_lbb_var : BitVector<16>;
+	k : BitVector<32>;
+	l_tmp2 : BitVector<32>;
+	l_tmp3 : BitVector<1>;
+	l_tmp5 : BitVector<32>;
+	l_tmp6 : BitVector<32>;
+	l_tmp7 : BitVector<32>;
+	l_tmp9 : BitVector<32>;
+	l_tmp10 : BitVector<32>;
+	initial	st_0_0;
+	final	st_4_1;
+	st_0_0 -> st_0_2 { ( ( k' = 0 ) && havoc ( k ) ) }
+	st_0_2 -> st_0_3 { ( ( k' = 0 ) && havoc ( k ) ) }
+	st_0_3 -> st_1_0 { ( ( _lbb_var' = 0 ) && havoc ( _lbb_var ) ) }
+	st_1_0 -> st_1_1 { ( ( l_tmp2' = k ) && havoc ( l_tmp2 ) ) }
+	st_1_1 -> st_1_2 { ( ( ( l_tmp2 < 5 ) <=> ( l_tmp3' = 1 ) ) && havoc ( l_tmp3 ) ) }
+	st_1_2 -> st_2_0 { ( l_tmp3 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_1_2 -> st_4_0 { ( not l_tmp3 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_2_0 -> st_2_1 { ( ( l_tmp5' = g_j ) && havoc ( l_tmp5 ) ) }
+	st_2_1 -> st_2_2 { ( ( l_tmp6' = g_i ) && havoc ( l_tmp6 ) ) }
+	st_2_2 -> st_2_3 { ( ( l_tmp7' = ( l_tmp6 + l_tmp5 ) ) && havoc ( l_tmp7 ) ) }
+	st_2_3 -> st_2_4 { ( ( g_i' = l_tmp7 ) && havoc ( g_i ) ) }
+	st_2_4 -> st_3_0 { ( ( _lbb_var' = 2 ) && havoc ( _lbb_var ) ) }
+	st_3_0 -> st_3_1 { ( ( l_tmp9' = k ) && havoc ( l_tmp9 ) ) }
+	st_3_1 -> st_3_2 { ( ( l_tmp10' = ( l_tmp9 + 1 ) ) && havoc ( l_tmp10 ) ) }
+	st_3_2 -> st_3_3 { ( ( k' = l_tmp10 ) && havoc ( k ) ) }
+	st_3_3 -> st_1_0 { ( ( _lbb_var' = 3 ) && havoc ( _lbb_var ) ) }
+	st_4_0 -> st_4_1 { havoc (  ) }
+}
+
+t2 {
+	_lbb_var : BitVector<16>;
+	k : BitVector<32>;
+	l_tmp2 : BitVector<32>;
+	l_tmp3 : BitVector<1>;
+	l_tmp5 : BitVector<32>;
+	l_tmp6 : BitVector<32>;
+	l_tmp7 : BitVector<32>;
+	l_tmp9 : BitVector<32>;
+	l_tmp10 : BitVector<32>;
+	initial	st_0_0;
+	final	st_4_1;
+	st_0_0 -> st_0_2 { ( ( k' = 0 ) && havoc ( k ) ) }
+	st_0_2 -> st_0_3 { ( ( k' = 0 ) && havoc ( k ) ) }
+	st_0_3 -> st_1_0 { ( ( _lbb_var' = 0 ) && havoc ( _lbb_var ) ) }
+	st_1_0 -> st_1_1 { ( ( l_tmp2' = k ) && havoc ( l_tmp2 ) ) }
+	st_1_1 -> st_1_2 { ( ( ( l_tmp2 < 5 ) <=> ( l_tmp3' = 1 ) ) && havoc ( l_tmp3 ) ) }
+	st_1_2 -> st_2_0 { ( l_tmp3 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_1_2 -> st_4_0 { ( not l_tmp3 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_2_0 -> st_2_1 { ( ( l_tmp5' = g_i ) && havoc ( l_tmp5 ) ) }
+	st_2_1 -> st_2_2 { ( ( l_tmp6' = g_j ) && havoc ( l_tmp6 ) ) }
+	st_2_2 -> st_2_3 { ( ( l_tmp7' = ( l_tmp6 + l_tmp5 ) ) && havoc ( l_tmp7 ) ) }
+	st_2_3 -> st_2_4 { ( ( g_j' = l_tmp7 ) && havoc ( g_j ) ) }
+	st_2_4 -> st_3_0 { ( ( _lbb_var' = 2 ) && havoc ( _lbb_var ) ) }
+	st_3_0 -> st_3_1 { ( ( l_tmp9' = k ) && havoc ( l_tmp9 ) ) }
+	st_3_1 -> st_3_2 { ( ( l_tmp10' = ( l_tmp9 + 1 ) ) && havoc ( l_tmp10 ) ) }
+	st_3_2 -> st_3_3 { ( ( k' = l_tmp10 ) && havoc ( k ) ) }
+	st_3_3 -> st_1_0 { ( ( _lbb_var' = 3 ) && havoc ( _lbb_var ) ) }
+	st_4_0 -> st_4_1 { havoc (  ) }
+}
+
+main {
+	out	_ret_var : BitVector<32>;
+	_lbb_var : BitVector<16>;
+	tmp : BitVector<32>;
+	id1 : BitVector<64>;
+	id2 : BitVector<64>;
+	l_tmp3 : BitVector<32>;
+	l_tmp4 : BitVector<1>;
+	l_tmp6 : BitVector<32>;
+	l_tmp7 : BitVector<1>;
+	initial	st_0_0;
+	final	st_4_1;
+	st_0_0 -> st_0_4 { ( ( tmp' = 0 ) && havoc ( tmp ) ) }
+	st_0_4 -> st_0_5 { id1' = __thread_create ( 1 ) }
+	st_0_5 -> st_0_6 { id2' = __thread_create ( 0 ) }
+	st_0_6 -> st_0_7 { ( ( l_tmp3' = g_i ) && havoc ( l_tmp3 ) ) }
+	st_0_7 -> st_0_8 { ( ( ( l_tmp3 >= 144 ) <=> ( l_tmp4' = 1 ) ) && havoc ( l_tmp4 ) ) }
+	st_0_8 -> st_2_0 { ( l_tmp4 && ( ( _lbb_var' = 0 ) && havoc ( _lbb_var ) ) ) }
+	st_0_8 -> st_1_0 { ( not l_tmp4 && ( ( _lbb_var' = 0 ) && havoc ( _lbb_var ) ) ) }
+	st_1_0 -> st_1_1 { ( ( l_tmp6' = g_j ) && havoc ( l_tmp6 ) ) }
+	st_1_1 -> st_1_2 { ( ( ( l_tmp6 >= 144 ) <=> ( l_tmp7' = 1 ) ) && havoc ( l_tmp7 ) ) }
+	st_1_2 -> st_2_0 { ( l_tmp7 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_1_2 -> st_4_0 { ( not l_tmp7 && ( ( _lbb_var' = 1 ) && havoc ( _lbb_var ) ) ) }
+	st_2_0 -> st_3_0 { ( ( _lbb_var' = 2 ) && havoc ( _lbb_var ) ) }
+	st_3_0 -> st_3_1 { __VERIFIER_error (  ) }
+	st_3_1 -> st_4_0 { ( ( _lbb_var' = 3 ) && havoc ( _lbb_var ) ) }
+	st_4_0 -> st_4_1 { ( ( _ret_var' = 0 ) && havoc ( _ret_var ) ) }
+}
+
+__thread_pool_routine {
+	initial	s_idle;
+	s_idle -> s_running_1 { ( ( __thread_pool_selected[tid] = 1 ) && havoc (  ) ) }
+	s_running_1 -> s_stopped { t2 (  ) }
+	s_stopped -> s_idle { ( __thread_pool_selected'[ tid ] = [0] && havoc ( __thread_pool_selected ) ) }
+	s_idle -> s_running_2 { ( ( __thread_pool_selected[tid] = 2 ) && havoc (  ) ) }
+	s_running_2 -> s_stopped { t1 (  ) }
+	s_stopped -> s_idle { ( __thread_pool_selected'[ tid ] = [0] && havoc ( __thread_pool_selected ) ) }
+}
+
+__thread_create {
+	in	func_id : BitVector<32>;
+	out	ret_tid : BitVector<64>;
+	thread_id : BitVector<32>;
+	initial	si;
+	final	sf;
+	error	se;
+	si -> sl { ( ( ( __thread_pool_lock = 0 ) && ( __thread_pool_lock' = ( tid + 1 ) ) ) && ( ( thread_id' = 0 ) && havoc ( __thread_pool_lock, thread_id ) ) ) }
+	sl -> sh { ( ( __thread_pool_selected[thread_id] = 0 ) && ( __thread_pool_selected'[ thread_id ] = [( func_id + 1 )] && havoc ( __thread_pool_selected ) ) ) }
+	sl -> sn { ( ( __thread_pool_selected[thread_id] > 0 ) && havoc (  ) ) }
+	sn -> sl { ( ( thread_id < 19 ) && ( ( thread_id' = ( thread_id + 1 ) ) && havoc ( thread_id ) ) ) }
+	sn -> se { ( ( thread_id >= 19 ) && havoc (  ) ) }
+	sh -> sf { ( ( ( __thread_pool_lock' = 0 ) && ( ret_tid' = thread_id ) ) && havoc ( __thread_pool_lock ) ) }
+}
+
