@@ -226,6 +226,15 @@ struct POVisitor : public SimpleVisitor
 		nts::Nts & n;
 		Tasks * t;
 
+		struct mystate;
+		struct mystates;
+		struct possible_ample;
+
+		possible_ample next_states (
+				const ControlState & cs, unsigned int pid ) const;
+		bool check_c0 ( const ControlState & cs, unsigned int pid ) const;
+		bool check_c3 ( const ControlState & cs, const mystates & ) const;
+
 	public:
 		POVisitor ( ControlFlowGraph & g, nts::Nts & n );
 		virtual ~POVisitor();

@@ -24,6 +24,7 @@ using namespace nts;
 enum Option
 {
 	Output,
+	InlOutput,
 	N_Threads,
 	Help,
 	NoPOR,
@@ -55,13 +56,14 @@ struct Arg: public option::Arg
 
 const option::Descriptor usage[] = 
 {
-	{ Option::Unknown,   0,  "",        "", Arg::None,     "Usage: run [options] file.ll\n\n"
+	{ Option::Unknown,   0,  "",               "", Arg::None,     "Usage: run [options] file.ll\n\n"
 		"Options:"                          },
-	{ Option::Output,    0, "o",  "output", Arg::Required, "  --output, -o    Where to write sequentialized nts." },
-	{ Option::N_Threads, 0,  "", "threads", Arg::Numeric,  "  --threads       Number of threads in thread pool" },
-	{ Option::NoPOR,     0,  "",  "no-por", Arg::None,     "  --no-por        Do not use Partial Order reduction " },
-	{ Option::Help,      0, "h",    "help", Arg::None,     "  --help          Print usage and exit." },
-	{ Option::Unknown,   0,  "",        "", Arg::None,     "\nExample: run -o seq.nts parallel.ll" },
+	{ Option::Output,    0, "o",         "output", Arg::Required, "  --output, -o       Where to write sequentialized nts." },
+	{ Option::InlOutput, 0,  "", "inliner-output", Arg::Required, "  --inliner-output   Where to write inlined nts (mainly for debug purposes)" },
+	{ Option::N_Threads, 0,  "",        "threads", Arg::Numeric,  "  --threads          Number of threads in thread pool" },
+	{ Option::NoPOR,     0,  "",         "no-por", Arg::None,     "  --no-por           Do not use Partial Order reduction " },
+	{ Option::Help,      0, "h",           "help", Arg::None,     "  --help             Print usage and exit." },
+	{ Option::Unknown,   0,  "",               "", Arg::None,     "\nExample: run -o seq.nts parallel.ll" },
 
 	{ 0, 0, 0, 0, 0, 0 }
 };
@@ -84,14 +86,6 @@ int main ( int argc, char **argv )
 		option::printUsage ( std::cout, usage );
 		return 0;
 	}
-#if 0
-
-	if ( argc <= 1 )
-	{
-		cout << "usage: " << argv[0] << " file.ll\n";
-		return 0;
-	}
-#endif
 
 	llvm2nts_options opts;
 	opts.thread_poll_size = 1;
@@ -131,7 +125,15 @@ int main ( int argc, char **argv )
 		return 1;
 	}
 	inline_calls_simple ( *nts );
-	cout << *nts;
+
+	if ( options[Option::InlOutput] )
+	{
+		ofstream fino ( options[Option::InlOutput].arg );
+		fino << *nts;
+		fino.close();
+		//cout << *nts;
+	}
+
 	unique_ptr < Nts > result = sequentialize (
 			* nts,
 			mode

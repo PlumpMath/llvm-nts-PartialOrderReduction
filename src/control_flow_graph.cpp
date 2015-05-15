@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <vector>
 #include <iostream>
 #include <stdexcept>
@@ -17,6 +18,7 @@ using std::logic_error;
 using std::ostream;
 using std::cout;
 using std::size_t;
+using std::sort;
 using std::string;
 using std::to_string;
 using std::unique_ptr;
@@ -143,7 +145,7 @@ void ControlState::create_nts_state ( string name )
 
 	nts_state = new State ( move ( name ) );
 	// Add some annotations
-	
+
 	std::stringstream ss;
 	ss << "( ";
 	unsigned int count = states.size();
@@ -155,7 +157,7 @@ void ControlState::create_nts_state ( string name )
 			ss << "-";
 		else
 			ss << as->value;
-		
+
 		if ( count != 0 )
 			ss << " | ";
 	}
@@ -227,7 +229,7 @@ ControlFlowGraph::~ControlFlowGraph()
 
 bool ControlFlowGraph::explore_next_edge()
 {
-	// Go back to top state, which is not closed yet	
+	// Go back to top state, which is not closed yet
 	while ( current && current->di.visited_next >= current->next.size() )
 	{
 		ControlState * up = current->di.reached_from;
@@ -252,7 +254,7 @@ bool ControlFlowGraph::explore_next_edge()
 
 	if ( _edge_visitor )
 		(*_edge_visitor) ( edge );
-	
+
 	if ( edge.to.di.st == ControlState::DFSInfo::St::New )
 	{
 		edge.to.di.st = ControlState::DFSInfo::St::On_stack;
@@ -396,7 +398,7 @@ Variable & clone_to_thread ( const Variable & v, string bnts_name, unsigned int 
 {
 	CNVariableInfo * cni = static_cast < CNVariableInfo * > ( v.user_data );
 	//@ assert cni->global == false
-	
+
 	// Resulting 'origin' have form:
 	// "name_of_bnts [ thread_id ] :: original_name"
 	string prefix = move ( bnts_name ) + " [ " + to_string ( tid ) + " ] :: ";
@@ -431,7 +433,7 @@ class ControlFlowGraph::NtsGenerator
 		/**
 		 * @pre  Q1: Every ControlState in ControlFlowGraph
 		 *           points to some state in dest_bn.
-		 *           
+		 *
 		 * @post R1: Every ControlState have its nts_state null.
 		 */
 		void clear_state_mapping();
@@ -493,9 +495,9 @@ void ControlFlowGraph::NtsGenerator::generate_nts()
  *
  * @post R1 Every local variable's user_data
  *          point to CNVariableInfo.
- *       R2 Every variable from CNVariableInfo 
+ *       R2 Every variable from CNVariableInfo
  *          is owned by given dest_bn.
- *          
+ *
  */
 void ControlFlowGraph::NtsGenerator::clone_local_variables ( )
 {
@@ -518,7 +520,7 @@ void ControlFlowGraph::NtsGenerator::clone_local_variables ( )
 				Variable & cl = clone_to_thread ( *v, bnts_name, thread_id + i);
 				cl.name = string ( "var_" ) + to_string ( var_id++ );
 				cl.insert_to ( *dest_bn );
-			}	
+			}
 		}
 
 		thread_id += inst->n;
@@ -571,7 +573,7 @@ void ControlFlowGraph::NtsGenerator::create_edges()
 			throw logic_error ( "State not found" );
 
 		TransitionRule * tr = e->t->rule().clone();
-	
+
 		// It seems like after first calling of lambda, the capture data are cleaned
 		// So we have to put that lambda into some holder, like VariableUse::visitor
 		VariableUse::visitor visitor = [e] ( VariableUse & u )
@@ -747,9 +749,7 @@ POVisitor::~POVisitor()
 	delete t;
 }
 
-namespace
-{
-struct mystate
+struct POVisitor::mystate
 {
 	ControlState * st;
 	bool is_my;
@@ -757,9 +757,10 @@ struct mystate
 	mystate ( ControlState * st, bool my, Transition & t ) :
 		st ( st ), is_my ( my ), t ( t ) { ; }
 };
+
 // Well, there might be two edges leading to the same state,
 // but it should not be bad.
-struct mystates : public vector < mystate >
+struct POVisitor::mystates : public vector < mystate >
 {
 	~mystates()
 	{
@@ -771,25 +772,205 @@ struct mystates : public vector < mystate >
 	}
 };
 
+namespace
+{
+
+
+// Does not modify the formula, but now it can not be const
+std::vector < const VariableUse * > all_primed_variables ( Formula & f )
+{
+	std::vector < const VariableUse * > uses;
+	VariableUse::visitor v = [&uses] ( const VariableUse & v)
+	{
+		switch ( v.user_type )
+		{
+			case VariableUse::UserType::VariableReference:
+				uses.push_back ( & v );
+				break;
+
+			case VariableUse::UserType::ArrayWrite:
+				uses.push_back ( & v );
+				break;
+
+			default:
+				break;
+		}
+	};
+
+	visit_variable_uses vvu ( v );
+	vvu.visit ( f );
+
+	return move ( uses );
 }
 
-bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
+bool is_primed_variable_reference ( const Term & t )
 {
-	
-	// Calculate all possible next states
-	// We do not want to add them to set of states (yet).
+	if ( t.term_type() != Term::TermType::Leaf )
+		return false;
 
-	// Also calculate set of read / modified global variables
+	auto & l = static_cast < const Leaf & > ( t );
 
-	mystates my_states;
-	Globals gs; //< Modified by some transition in this possible ample set
+	if ( l.leaf_type() != Leaf::LeafType::VariableReference )
+		return false;
 
+	auto & vr = static_cast < const VariableReference & > ( t );
+	return vr.primed();
+}
+
+bool always_enabled ( const AtomicProposition & ap )
+{
+	switch ( ap.aptype() )
+	{
+		case AtomicProposition::APType::BooleanTerm:
+			return false;
+
+		case AtomicProposition::APType::ArrayWrite:
+			return true;
+
+		case AtomicProposition::APType::Havoc:
+			return true;
+
+		case AtomicProposition::APType::Relation:
+		{
+			auto & r = static_cast < const Relation & > ( ap );
+			if ( is_primed_variable_reference ( r.term1() ) )
+				return true;
+			if ( is_primed_variable_reference ( r.term2() ) )
+				return true;
+			return false;
+		}
+	}
+	return false; // unreachable
+}
+
+bool only_enabled_aps ( const Formula & f )
+{
+	switch ( f.type() )
+	{
+		case Formula::Type::AtomicProposition:
+		{
+			auto & ap = static_cast < const AtomicProposition & > ( f );
+			return always_enabled ( ap );
+		}
+
+		case Formula::Type::FormulaBop:
+		{
+			auto & fb = static_cast < const FormulaBop & > ( f );
+			if ( fb.op() != BoolOp::And )
+				return false;
+
+			return only_enabled_aps ( fb.formula_1() )
+				&& only_enabled_aps ( fb.formula_2() );
+		}
+
+		default:
+			return false;
+	}
+}
+
+// assumes formula consists only of APs connected by AND
+bool all_havoc_contains ( const Formula & f, vector < const VariableUse * > vs )
+{
+	switch ( f.type() )
+	{
+		case Formula::Type::FormulaBop:
+		{
+			auto & fb = static_cast < const FormulaBop & > ( f );
+			if ( fb.op() != BoolOp::And )
+				return false;
+			return all_havoc_contains ( fb.formula_1(), vs )
+				&& all_havoc_contains ( fb.formula_2(), vs );
+		}
+
+		case Formula::Type::AtomicProposition:
+		{
+			auto & ap = static_cast < const AtomicProposition & > ( f );
+			if ( ap.aptype() != AtomicProposition::APType::Havoc )
+				return true;
+			auto & hv = static_cast < const Havoc & > ( ap );
+			for ( const VariableUse * v : vs )
+			{
+				std::function < bool ( const VariableUse & ) > cmp =
+				[v] ( const VariableUse & u ) -> bool
+				{
+					return v->get() == u.get();
+				};
+				if ( hv.variables.cend() == std::find_if (
+					hv.variables.cbegin(),
+					hv.variables.cend(), cmp ) )
+				{
+					return false; // variable not found in havoc
+				}
+			}
+			return true;// Yes, havoc contains all variables from vs
+		}
+
+		default:
+			return false;
+	}
+}
+
+bool always_enabled ( const TransitionRule & r )
+{
+	if ( r.kind() ==  TransitionRule::Kind::Call )
+		return true;
+
+	if ( r.kind() != TransitionRule::Kind::Formula )
+		return false;
+
+	auto & ftr = static_cast < const FormulaTransitionRule & > ( r );
+	Formula & f = ftr.formula();
+	if ( ! only_enabled_aps ( f ) )
+		return false;
+
+
+	vector < const VariableUse * > prvals = all_primed_variables ( f );
+
+	if ( prvals.size() == 0 )
+		return true;
+
+	// Every primed variable can be there only once
+	sort ( prvals.begin(), prvals.end(),
+			[](const VariableUse * a, const VariableUse * b) -> bool
+			{
+				return a->get() < b->get();
+			}
+	);
+
+	auto it1 = prvals.begin();
+	auto it2 = it1 + 1;
+	while ( it2 != prvals.end() )
+	{
+		if ( (*it1)->get() == (*it2)->get() )
+			return false; // Duplicate found
+		it1++;
+		it2++;
+	}
+
+	if ( !all_havoc_contains ( f, prvals ) )
+		return false;
+
+	return true;
+}
+
+} // namespace
+
+struct POVisitor::possible_ample
+{
+	mystates next_states;
+	Globals gs;
+};
+
+POVisitor::possible_ample POVisitor::next_states (
+		const ControlState & cs, unsigned int pid ) const
+{
+	possible_ample pa;
 	const ProcessState & s = cs.states[pid];
 	for ( Transition *t : s.bnts_state->outgoing() )
 	{
 
 		const TransitionInfo * ti = ( const TransitionInfo * ) t->user_data;
-		gs.union_with ( ti->global );
+		pa.gs.union_with ( ti->global );
 
 		auto cs_new = new ControlState();
 		cs_new->states = cs.states; // Copy
@@ -802,20 +983,20 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		{
 			// We already have this state
 			delete cs_new;
-			my_states.push_back ( mystate ( next, false, *t ) );
+			pa.next_states.push_back ( mystate ( next, false, *t ) );
 		} else {
-			my_states.push_back ( mystate ( cs_new, true, *t ) );
+			pa.next_states.push_back ( mystate ( cs_new, true, *t ) );
 		}
 	}
-
 	// Every new state we have just discovered has 'is_my' flag true.
 	// States which does not have 'is_my' flag belong to CFG.
+	return pa;
+}
 
-	cout << "process " << pid << " uses following variables:\n";
-	cout << gs;
 
-	// Check C3: Is some of these states on stack?
-	for ( mystate & ms : my_states )
+bool POVisitor::check_c3 ( const ControlState & cs, const mystates & my_states ) const
+{
+	for ( const mystate & ms : my_states )
 	{
 		ControlState * s = ms.st;
 
@@ -829,6 +1010,48 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 			return false;
 		}
 	}
+	return true;
+}
+
+bool POVisitor::check_c0 ( const ControlState & cs, unsigned int pid ) const
+{
+	// Check C0: is there any transition,
+	// which is enabled in all configurations with this cs?
+
+	const ProcessState & s = cs.states[pid];
+	bool yes = false;
+	for ( Transition *t : s.bnts_state->outgoing() )
+	{
+		if ( always_enabled ( t->rule() ) )
+		{
+			cout << "==Always enabled:\n> " << *t << "\n";
+			yes = true;
+		}
+	}
+
+	if ( !yes )
+	{
+		cout << "pid " << pid << ": C0 failed\n";
+	}
+
+	return yes;
+}
+
+bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
+{
+	if ( !check_c0 ( cs, pid ) )
+		return false;
+
+
+	possible_ample pa = next_states ( cs, pid );
+
+
+	//cout << "process " << pid << " uses following variables:\n";
+	//cout << pa.gs;
+
+	if ( ! check_c3 ( cs, pa.next_states ) )
+		return false;
+
 
 	// Compute set of all variables, which can be used
 	// by other process.
@@ -849,16 +1072,16 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		other_tasks_globals.union_with ( si->t->transitive_global );
 	}
 
-	if ( other_tasks_globals.may_collide_with ( gs ) )
+	if ( other_tasks_globals.may_collide_with ( pa.gs ) )
 		return false;
 
-	cout << "other processes may use:\n" << other_tasks_globals;
+	//cout << "other processes may use:\n" << other_tasks_globals;
 
-	cout << "Possible ample set: pid " << pid << "\n";
+	//cout << "Possible ample set: pid " << pid << "\n";
 
-	while ( !my_states.empty() )
+	while ( !pa.next_states.empty() )
 	{
-		mystate & ms = my_states.back();
+		mystate & ms = pa.next_states.back();
 		ControlState * s;
 		if ( ms.is_my )
 			s = & g.insert_state ( *ms.st );
@@ -867,7 +1090,7 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 
 		cs.next.push_back ( CFGEdge ( &cs, *s, & ms.t, pid ) );
 		ms.st = nullptr;
-		my_states.pop_back();
+		pa.next_states.pop_back();
 	}
 
 
