@@ -983,7 +983,7 @@ bool POVisitor::check_c3 ( const ControlState & cs, const mystates & my_states )
 		// But note that state 'cs' is not marked as on stack.
 		if ( &cs == s )
 		{
-			cout << "self loop\n";
+			//cout << "self loop\n";
 			return false;
 		}
 	}
