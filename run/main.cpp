@@ -54,7 +54,7 @@ struct Arg: public option::Arg
 	}
 };
 
-const option::Descriptor usage[] = 
+const option::Descriptor usage[] =
 {
 	{ Option::Unknown,   0,  "",               "", Arg::None,     "Usage: run [options] file.ll\n\n"
 		"Options:"                          },
@@ -117,7 +117,6 @@ int main ( int argc, char **argv )
 		out = &fout;
 	}
 
-	
 	unique_ptr < Nts > nts = llvm_file_to_nts ( filename, & opts );
 	if ( ! nts )
 	{

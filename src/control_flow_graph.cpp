@@ -69,28 +69,15 @@ size_t ProcessState::calculate_hash ( const ProcessState & st )
 
 bool ControlState::operator== ( const ControlState & other ) const
 {
-	//cout << "Comparing:\n\t";
-	//print ( cout );
-	//cout << "\n\t";
-	//other.print ( cout );
-	//cout << "\n";
-
 	if ( states.size() != other.states.size() )
-	{
-		//cout << "Different size\n";
 		return false;
-	}
 
 	for ( unsigned int i = 0; i < states.size(); i++ )
 	{
 		if ( states[i] != other.states[i] )
-		{
-			//cout << "Process " << i << " missmatch\n";
 			return false;
-		}
 	}
 
-	//cout << "same\n";
 	return true;
 }
 
@@ -131,11 +118,7 @@ size_t ControlState::calculate_hash ( const ControlState & cs )
 
 size_t ControlState::calculate_hash_p ( const ControlState * cs )
 {
-	size_t h = calculate_hash ( *cs );
-	//cout << "Hash of ";
-	//cs->print ( cout );
-	//cout << " is " << h << "\n";
-	return h;
+	return calculate_hash ( *cs );
 }
 
 void ControlState::create_nts_state ( string name )
@@ -165,7 +148,6 @@ void ControlState::create_nts_state ( string name )
 	ss << " )";
 
 	AnnotString * as = new AnnotString ( "origin", ss.str());
-	//cout << "it was named: " << as->value << "\n";
 	as->insert_to ( nts_state->annotations );
 }
 
@@ -680,18 +662,18 @@ void SimpleVisitor::operator() ( const CFGEdge & e )
 	switch ( e.to.di.st )
 	{
 		case ControlState::DFSInfo::St::New:
-			cout << "Exploring ";
-			e.to.print ( cout );
-			cout << "\n";
+			//cout << "Exploring ";
+			//e.to.print ( cout );
+			//cout << "\n";
 			explore ( e.to );
 			break;
 
 		case ControlState::DFSInfo::St::On_stack:
-			cout << "**Reached state on stack. Ignoring.\n";
+			//cout << "**Reached state on stack. Ignoring.\n";
 			break;
 
 		case ControlState::DFSInfo::St::Closed:
-			cout << "**Reached closed state. Ignoring.\n";
+			//cout << "**Reached closed state. Ignoring.\n";
 			break;
 	}
 }
@@ -713,16 +695,11 @@ void SimpleVisitor::explore ( ControlState & cs )
 void SimpleVisitor::explore ( ControlState & cs, unsigned int pid )
 {
 	const ProcessState & s = cs.states[pid];
-	cout << "process " << pid << ": possible " << s.bnts_state->outgoing().size() << " folowers\n";
 	for ( Transition *t : s.bnts_state->outgoing() )
 	{
 		auto cs_new = new ControlState();
 		cs_new->states = cs.states; // Copy
 		cs_new->states[pid].bnts_state = & t->to();
-
-		cout << "\tDiscovered: ";
-		cs_new->print ( cout );
-		cout << "\n";
 
 		ControlState & reached = g.insert_state ( *cs_new );
 		cs.next.push_back ( CFGEdge ( & cs, reached, t, pid ) );
@@ -1013,72 +990,29 @@ bool POVisitor::check_c3 ( const ControlState & cs, const mystates & my_states )
 	return true;
 }
 
+// Check C0: is there any transition,
+// which is enabled in all configurations of given cs?
 bool POVisitor::check_c0 ( const ControlState & cs, unsigned int pid ) const
 {
-	// Check C0: is there any transition,
-	// which is enabled in all configurations with this cs?
-
 	const ProcessState & s = cs.states[pid];
-	bool yes = false;
 	for ( Transition *t : s.bnts_state->outgoing() )
 	{
 		if ( always_enabled ( t->rule() ) )
-		{
-			cout << "==Always enabled:\n> " << *t << "\n";
-			yes = true;
-		}
+			return true;
 	}
 
-	if ( !yes )
-	{
-		cout << "pid " << pid << ": C0 failed\n";
-	}
-
-	return yes;
+	return false;
 }
 
-bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
+bool POVisitor::check_c2 ( const ControlState & cs, unsigned int pid ) const
 {
-	if ( !check_c0 ( cs, pid ) )
-		return false;
+	( void ) cs;
+	( void ) pid;
+	return true;
+}
 
-
-	possible_ample pa = next_states ( cs, pid );
-
-
-	//cout << "process " << pid << " uses following variables:\n";
-	//cout << pa.gs;
-
-	if ( ! check_c3 ( cs, pa.next_states ) )
-		return false;
-
-
-	// Compute set of all variables, which can be used
-	// by other process.
-	// Note that in current implementation of Tasks::compute_transitive_globals()
-	// we assume that every task may cause every other task to run.
-	// It means every task's transitive_globals are the same,
-	// so unioning them here looks just like wasted time.
-	// But it will be useful later.
-	Globals other_tasks_globals;
-	for ( unsigned int i = 0; i < cs.states.size(); i++ )
-	{
-		if ( i == pid )
-			continue;
-
-		ProcessState & ps = cs.states[i];
-		StateInfo * si = static_cast < StateInfo * > ( ps.bnts_state->user_data );
-
-		other_tasks_globals.union_with ( si->t->transitive_global );
-	}
-
-	if ( other_tasks_globals.may_collide_with ( pa.gs ) )
-		return false;
-
-	//cout << "other processes may use:\n" << other_tasks_globals;
-
-	//cout << "Possible ample set: pid " << pid << "\n";
-
+void POVisitor::use_ample_set ( ControlState & cs, unsigned int pid, possible_ample & pa ) const
+{
 	while ( !pa.next_states.empty() )
 	{
 		mystate & ms = pa.next_states.back();
@@ -1092,22 +1026,63 @@ bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
 		ms.st = nullptr;
 		pa.next_states.pop_back();
 	}
+}
 
+bool POVisitor::check_c1 ( const ControlState & cs, unsigned int pid, const possible_ample & pa ) const
+{
+	// Compute set of all variables, which can be used
+	// by other process.
+	// Note that in current implementation of Tasks::compute_transitive_globals()
+	// we assume that every task may cause every other task to run.
+	// It means every task's transitive_globals are the same,
+	// so unioning them here looks just like wasted time.
+	// But it will be useful later.
+	Globals other_tasks_globals;
+	for ( unsigned int i = 0; i < cs.states.size(); i++ )
+	{
+		if ( i == pid )
+			continue;
 
+		const ProcessState & ps = cs.states[i];
+		StateInfo * si = static_cast < StateInfo * > ( ps.bnts_state->user_data );
+
+		other_tasks_globals.union_with ( si->t->transitive_global );
+	}
+
+	if ( other_tasks_globals.may_collide_with ( pa.gs ) )
+		return false;
+
+	return true;
+}
+
+bool POVisitor::try_ample ( ControlState & cs, unsigned int pid )
+{
+	if ( !check_c0 ( cs, pid ) )
+		return false;
+
+	possible_ample pa = next_states ( cs, pid );
+
+	if ( ! check_c2 ( cs, pid ) )
+		return false;
+
+	if ( ! check_c3 ( cs, pa.next_states ) )
+		return false;
+
+	if ( ! check_c1 ( cs, pid, pa ) )
+		return false;
+
+	use_ample_set ( cs, pid, pa );
 	return true;
 }
 
 void POVisitor::explore ( ControlState & cs )
 {
-	// Try to use one of the process states as ample set
 	for ( unsigned int i = 0; i < cs.states.size(); i++ )
 	{
 		if ( try_ample ( cs, i ) )
 			return;
 	}
 
-	cout << "Can not find ample set\n";
-	// We must expand all states
 	SimpleVisitor::explore ( cs );
 }
 

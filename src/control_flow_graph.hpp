@@ -211,7 +211,7 @@ struct SimpleVisitor : public IEdgeVisitor
 		virtual ~SimpleVisitor();
 
 		void explore ( ControlState & cs, unsigned int pid );
-		
+
 		virtual void explore ( ControlState & cs );
 		virtual void operator() ( const CFGEdge & e ) override;
 
@@ -233,13 +233,17 @@ struct POVisitor : public SimpleVisitor
 		possible_ample next_states (
 				const ControlState & cs, unsigned int pid ) const;
 		bool check_c0 ( const ControlState & cs, unsigned int pid ) const;
+		bool check_c1 ( const ControlState & cs, unsigned int pid, const possible_ample & pa ) const;
+		bool check_c2 ( const ControlState & cs, unsigned int pid ) const;
 		bool check_c3 ( const ControlState & cs, const mystates & ) const;
+		void use_ample_set ( ControlState & cs, unsigned int pid,  possible_ample & a ) const;
 
 	public:
 		POVisitor ( ControlFlowGraph & g, nts::Nts & n );
 		virtual ~POVisitor();
 
 		/**
+		 * @brief Tries to use transitions of thread 'pid' as A-set.
 		 * @pre  Q1: All transitions in .n must have computed TransitionInfo
 		 */
 		bool try_ample ( ControlState & cs, unsigned int pid );
