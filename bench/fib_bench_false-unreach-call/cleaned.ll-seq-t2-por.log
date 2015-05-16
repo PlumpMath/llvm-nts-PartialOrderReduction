@@ -1,0 +1,14 @@
+Task idle_worker_task uses:
+	reads:  { gvar_3, }
+	writes: { gvar_3, }
+Task t2 uses:
+	reads:  { gvar_1, gvar_0, }
+	writes: { gvar_1, }
+Task t1 uses:
+	reads:  { gvar_1, gvar_0, }
+	writes: { gvar_0, }
+Task main uses:
+	reads:  { gvar_2, gvar_3, gvar_1, gvar_0, }
+	writes: { gvar_2, gvar_3, }
+Total states: 2780 edges: 1855
+Warning: no user_data on var_12

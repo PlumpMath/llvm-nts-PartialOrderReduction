@@ -19,6 +19,7 @@ bench_file()
 
 	${RUNNER} --threads $THREADS \
 		      --output "$FILEOUT_SIMPLE_NTS" \
+			  --no-por \
 			  "$FILE_IN" \
 			  | tee "$FILEOUT_SIMPLE_LOG"
 
