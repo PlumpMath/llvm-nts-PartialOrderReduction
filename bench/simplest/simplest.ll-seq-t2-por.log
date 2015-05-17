@@ -7,4 +7,5 @@ Task main uses:
 Task thread_func uses:
 	reads:  { }
 	writes: { }
-Total states: 119 edges: 118
+Total states: 157 edges: 275
+BN states: 157, edges: 275

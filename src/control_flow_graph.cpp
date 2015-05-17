@@ -229,8 +229,6 @@ bool ControlFlowGraph::explore_next_edge()
 	// After this point, nobody should should modify current->next
 	current->di.visited_next++;
 
-	edge.to.di.reached_from = current;
-
 	// Each edge is visited exactly once
 	edges.push_back ( & edge );
 
@@ -239,6 +237,7 @@ bool ControlFlowGraph::explore_next_edge()
 
 	if ( edge.to.di.st == ControlState::DFSInfo::St::New )
 	{
+		edge.to.di.reached_from = current;
 		edge.to.di.st = ControlState::DFSInfo::St::On_stack;
 		current = & edge.to;
 	}

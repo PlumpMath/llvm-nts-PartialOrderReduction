@@ -10,5 +10,6 @@ Task t1 uses:
 Task main uses:
 	reads:  { gvar_2, gvar_3, gvar_1, gvar_0, }
 	writes: { gvar_2, gvar_3, }
-Total states: 2780 edges: 1855
+Total states: 29383 edges: 63888
 Warning: no user_data on var_12
+BN states: 29383, edges: 63888

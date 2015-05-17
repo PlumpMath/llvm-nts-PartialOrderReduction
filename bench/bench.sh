@@ -4,6 +4,7 @@ bench_file()
 {
 	FILE_IN=$1
 	THREADS=$2
+	ONLY_SIMPLE="$3"
 
 	FILEPR="${FILE_IN}-seq-t${THREADS}"
 	FILEOUT_POR_NTS="${FILEPR}-por.nts"
@@ -17,11 +18,13 @@ bench_file()
 			  "$FILE_IN" \
 			  | tee "$FILEOUT_POR_LOG"
 
+	if [ -z "$ONLY_SIMPLE" ]; then
 	${RUNNER} --threads $THREADS \
 		      --output "$FILEOUT_SIMPLE_NTS" \
 			  --no-por \
 			  "$FILE_IN" \
 			  | tee "$FILEOUT_SIMPLE_LOG"
+	fi;
 
 }
 
@@ -31,4 +34,4 @@ if [ -z "$FILE" ] ; then
 	exit 1
 fi;
 
-bench_file "$FILE" "2"
+bench_file "$FILE" "2" "$2"
