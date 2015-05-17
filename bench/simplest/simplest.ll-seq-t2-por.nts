@@ -1,0 +1,380 @@
+nts sequenced;
+@origin:string:"__thread_pool_lock";
+gvar_0 : BitVector<32>
+@origin:string:"__thread_pool_selected";
+gvar_1[2] : BitVector<32>
+instances main [1];
+main  {
+	@origin:string:"__thread_pool_routine [ 0 ] :: thread_func::_lbb_var";
+var_0 : BitVector<16>;
+	@origin:string:"__thread_pool_routine [ 1 ] :: thread_func::_lbb_var";
+var_1 : BitVector<16>;
+	@origin:string:"main [ 2 ] :: _lbb_var";
+var_2 : BitVector<16>;
+	@origin:string:"main [ 2 ] :: id";
+var_3 : BitVector<64>;
+	@origin:string:"main [ 2 ] :: __thread_create::thread_id";
+var_4 : BitVector<32>;
+	@origin:string:"main [ 2 ] :: __thread_create::func_id";
+var_5 : BitVector<32>;
+	@origin:string:"main [ 2 ] :: __thread_create::ret_tid";
+var_6 : BitVector<64>;
+	states
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | st_0_3 )";
+	st_0,
+@origin:string:"( thread_func:0:st_0_0 | thread_func:0:st_0_1 | st_0_3 )";
+	st_1,
+@origin:string:"( s_running_1 | thread_func:0:st_0_1 | st_0_3 )";
+	st_2,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | st_0_3 )";
+	st_3,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | st_0_3 )";
+	st_4,
+@origin:string:"( thread_func:0:st_0_1 | s_running_1 | st_0_3 )";
+	st_5,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | st_0_3 )";
+	st_6,
+@origin:string:"( thread_func:0:st_0_0 | s_running_1 | st_0_3 )";
+	st_7,
+@origin:string:"( s_idle | s_running_1 | st_0_3 )";
+	st_8,
+@origin:string:"( s_running_1 | s_idle | st_0_3 )";
+	st_9,
+@origin:string:"( s_stopped | s_running_1 | st_0_3 )";
+	st_10,
+@origin:string:"( thread_func:0:st_0_1 | s_idle | st_0_3 )";
+	st_11,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | st_0_3 )";
+	st_12,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | st_0_3 )";
+	st_13,
+@origin:string:"( s_idle | s_idle | st_0_3 )";
+	st_14,
+@origin:string:"( s_running_1 | s_stopped | st_0_3 )";
+	st_15,
+@origin:string:"( s_stopped | s_idle | st_0_3 )";
+	st_16,
+@origin:string:"( s_idle | s_stopped | st_0_3 )";
+	st_17,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | st_0_2 )";
+	st_18,
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | st_0_2 )";
+	st_19,
+@origin:string:"( thread_func:0:st_0_0 | thread_func:0:st_0_1 | st_0_2 )";
+	st_20,
+@origin:string:"( s_running_1 | thread_func:0:st_0_1 | st_0_2 )";
+	st_21,
+@origin:string:"( s_stopped | s_stopped | st_0_3 )";
+	st_22,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | st_0_2 )";
+	st_23,
+@origin:string:"( s_running_1 | thread_func:0:st_0_1 | __thread_create:0:sf )";
+	st_24,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | st_0_2 )";
+	st_25,
+@origin:string:"( s_idle | thread_func:0:st_0_0 | __thread_create:0:sf )";
+	st_26,
+@origin:string:"( thread_func:0:st_0_1 | s_running_1 | __thread_create:0:sf )";
+	st_27,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | st_0_2 )";
+	st_28,
+@origin:string:"( thread_func:0:st_0_0 | s_running_1 | __thread_create:0:sf )";
+	st_29,
+@origin:string:"( s_running_1 | s_idle | __thread_create:0:sf )";
+	st_30,
+@origin:string:"( s_stopped | s_idle | st_0_2 )";
+	st_31,
+@origin:string:"( s_stopped | s_running_1 | __thread_create:0:sf )";
+	st_32,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | st_0_2 )";
+	st_33,
+@origin:string:"( thread_func:0:st_0_1 | s_idle | __thread_create:0:sf )";
+	st_34,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | __thread_create:0:sf )";
+	st_35,
+@origin:string:"( s_idle | s_stopped | st_0_2 )";
+	st_36,
+@origin:string:"( s_running_1 | s_stopped | __thread_create:0:sf )";
+	st_37,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | __thread_create:0:sf )";
+	st_38,
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | __thread_create:0:sf )";
+	st_39,
+@origin:string:"( thread_func:0:st_0_0 | thread_func:0:st_0_1 | __thread_create:0:sf )";
+	st_40,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | __thread_create:0:sf )";
+	st_41,
+@origin:string:"( s_running_1 | thread_func:0:st_0_1 | __thread_create:0:sh )";
+	st_42,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | __thread_create:0:sf )";
+	st_43,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | st_0_3 )";
+	st_44,
+@origin:string:"( s_idle | thread_func:0:st_0_0 | __thread_create:0:sh )";
+	st_45,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | __thread_create:0:sh )";
+	st_46,
+@origin:string:"( thread_func:0:st_0_1 | s_running_1 | __thread_create:0:sh )";
+	st_47,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | __thread_create:0:sf )";
+	st_48,
+@origin:string:"( thread_func:0:st_0_0 | s_running_1 | __thread_create:0:sh )";
+	st_49,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | __thread_create:0:sh )";
+	st_50,
+@origin:string:"( s_idle | s_idle | __thread_create:0:sf )";
+	st_51,
+@origin:string:"( s_idle | s_running_1 | __thread_create:0:sh )";
+	st_52,
+@origin:string:"( s_stopped | s_idle | __thread_create:0:sf )";
+	st_53,
+@origin:string:"( s_stopped | s_running_1 | __thread_create:0:sh )";
+	st_54,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | __thread_create:0:sf )";
+	st_55,
+@origin:string:"( thread_func:0:st_0_1 | s_idle | __thread_create:0:sh )";
+	st_56,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | __thread_create:0:sh )";
+	st_57,
+@origin:string:"( s_idle | s_stopped | __thread_create:0:sf )";
+	st_58,
+@origin:string:"( s_running_1 | s_stopped | __thread_create:0:sh )";
+	st_59,
+@origin:string:"( s_stopped | s_stopped | __thread_create:0:sf )";
+	st_60,
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | __thread_create:0:sn )";
+	st_61,
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | __thread_create:0:sh )";
+	st_62,
+@origin:string:"( thread_func:0:st_0_1 | thread_func:0:st_0_1 | __thread_create:0:sl )";
+	st_63,
+@origin:string:"( thread_func:0:st_0_0 | thread_func:0:st_0_1 | __thread_create:0:sl )";
+	st_64,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | __thread_create:0:sn )";
+	st_65,
+@origin:string:"( s_running_1 | thread_func:0:st_0_1 | __thread_create:0:sl )";
+	st_66,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | __thread_create:0:sn )";
+	st_67,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | __thread_create:0:sh )";
+	st_68,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | __thread_create:0:sl )";
+	st_69,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | __thread_create:0:sl )";
+	st_70,
+@origin:string:"( thread_func:0:st_0_1 | s_running_1 | __thread_create:0:sl )";
+	st_71,
+@origin:string:"( thread_func:0:st_0_0 | s_running_1 | __thread_create:0:sl )";
+	st_72,
+@origin:string:"( s_running_1 | s_idle | __thread_create:0:sn )";
+	st_73,
+@origin:string:"( s_running_1 | s_idle | __thread_create:0:sh )";
+	st_74,
+@origin:string:"( s_running_1 | s_running_1 | __thread_create:0:sl )";
+	st_75,
+@origin:string:"( s_idle | s_idle | __thread_create:0:sn )";
+	st_76,
+@origin:string:"( s_idle | s_idle | __thread_create:0:sh )";
+	st_77,
+@origin:string:"( s_idle | s_idle | st_0_2 )";
+	st_78,
+@origin:string:"( s_idle | s_running_1 | __thread_create:0:sl )";
+	st_79,
+@origin:string:"( s_running_1 | s_idle | __thread_create:0:sl )";
+	st_80,
+@origin:string:"( s_stopped | s_idle | __thread_create:0:sn )";
+	st_81,
+@origin:string:"( s_stopped | s_idle | __thread_create:0:sh )";
+	st_82,
+@origin:string:"( s_stopped | s_running_1 | __thread_create:0:sl )";
+	st_83,
+@origin:string:"( thread_func:0:st_0_1 | s_idle | __thread_create:0:sl )";
+	st_84,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | __thread_create:0:sn )";
+	st_85,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | __thread_create:0:sh )";
+	st_86,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | __thread_create:0:sl )";
+	st_87,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | __thread_create:0:sl )";
+	st_88,
+@origin:string:"( s_idle | s_stopped | __thread_create:0:sn )";
+	st_89,
+@origin:string:"( s_idle | s_stopped | __thread_create:0:sh )";
+	st_90,
+@origin:string:"( s_running_1 | s_stopped | __thread_create:0:sl )";
+	st_91,
+@origin:string:"( s_stopped | s_stopped | __thread_create:0:sn )";
+	st_92,
+@origin:string:"( s_stopped | s_stopped | __thread_create:0:sh )";
+	st_93,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | __thread_create:0:sl )";
+	st_94,
+@origin:string:"( thread_func:0:st_0_1 | s_stopped | __thread_create:0:si )";
+	st_95,
+@origin:string:"( thread_func:0:st_0_0 | thread_func:0:st_0_1 | __thread_create:0:sh )";
+	st_96,
+@origin:string:"( thread_func:0:st_0_0 | s_stopped | __thread_create:0:si )";
+	st_97,
+@origin:string:"( s_idle | s_stopped | __thread_create:0:sl )";
+	st_98,
+@origin:string:"( s_running_1 | s_stopped | __thread_create:0:si )";
+	st_99,
+@origin:string:"( s_idle | s_running_1 | __thread_create:0:sf )";
+	st_100,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | __thread_create:0:sh )";
+	st_101,
+@origin:string:"( s_stopped | s_stopped | __thread_create:0:sl )";
+	st_102,
+@origin:string:"( s_idle | s_stopped | __thread_create:0:si )";
+	st_103,
+@origin:string:"( s_stopped | s_stopped | __thread_create:0:si )";
+	st_104,
+@origin:string:"( s_stopped | thread_func:0:st_0_1 | __thread_create:0:si )";
+	st_105,
+@origin:string:"( s_stopped | thread_func:0:st_0_0 | __thread_create:0:si )";
+	st_106,
+@origin:string:"( s_stopped | s_idle | __thread_create:0:sl )";
+	st_107,
+@origin:string:"( s_stopped | s_running_1 | __thread_create:0:si )";
+	st_108,
+@origin:string:"( s_stopped | s_idle | __thread_create:0:si )";
+	st_109,
+@origin:string:"( thread_func:0:st_0_1 | s_idle | __thread_create:0:si )";
+	st_110,
+@origin:string:"( thread_func:0:st_0_0 | s_idle | __thread_create:0:si )";
+	st_111,
+@origin:string:"( s_idle | s_idle | __thread_create:0:sl )";
+	st_112,
+@origin:string:"( s_stopped | s_stopped | st_0_2 )";
+	st_113,
+@origin:string:"( s_idle | thread_func:0:st_0_1 | __thread_create:0:sl )";
+	st_114,
+@origin:string:"( s_idle | s_running_1 | __thread_create:0:si )";
+	st_115,
+@origin:string:"( s_running_1 | s_idle | __thread_create:0:si )";
+	st_116,
+@origin:string:"( s_idle | s_idle | __thread_create:0:si )";
+	st_117,
+@origin:string:"( s_idle | s_idle | st_0_0 )";
+	st_118;
+	st_118 -> st_117 { ( havoc ( var_5 ) && ( var_5' = 0 ) ) }
+	st_117 -> st_116 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_116 -> st_111 { havoc (  ) }
+	st_111 -> st_110 { havoc (  ) }
+	st_110 -> st_109 { havoc (  ) }
+	st_109 -> st_117 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_109 -> st_108 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_108 -> st_106 { havoc (  ) }
+	st_106 -> st_105 { havoc (  ) }
+	st_105 -> st_104 { havoc (  ) }
+	st_104 -> st_103 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_103 -> st_99 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_99 -> st_97 { havoc (  ) }
+	st_97 -> st_95 { havoc (  ) }
+	st_95 -> st_104 { havoc (  ) }
+	st_95 -> st_110 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_95 -> st_94 { ( ( ( gvar_0 = 0 ) && ( gvar_0' = ( tid + 1 ) ) ) && ( ( var_4' = 0 ) && havoc ( gvar_0, var_4 ) ) ) }
+	st_94 -> st_102 { havoc (  ) }
+	st_102 -> st_98 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_98 -> st_91 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_91 -> st_88 { havoc (  ) }
+	st_88 -> st_94 { havoc (  ) }
+	st_88 -> st_87 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_87 -> st_84 { havoc (  ) }
+	st_84 -> st_107 { havoc (  ) }
+	st_107 -> st_112 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_112 -> st_80 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_80 -> st_87 { havoc (  ) }
+	st_80 -> st_75 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_75 -> st_72 { havoc (  ) }
+	st_72 -> st_71 { havoc (  ) }
+	st_71 -> st_83 { havoc (  ) }
+	st_83 -> st_70 { havoc (  ) }
+	st_70 -> st_69 { havoc (  ) }
+	st_69 -> st_114 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_114 -> st_66 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_66 -> st_64 { havoc (  ) }
+	st_64 -> st_63 { havoc (  ) }
+	st_63 -> st_69 { havoc (  ) }
+	st_63 -> st_94 { havoc (  ) }
+	st_63 -> st_62 { ( ( gvar_1[var_4] = 0 ) && ( gvar_1'[ var_4 ] = [( var_5 + 1 )] && havoc ( gvar_1 ) ) ) }
+	st_62 -> st_68 { havoc (  ) }
+	st_68 -> st_93 { havoc (  ) }
+	st_93 -> st_90 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_90 -> st_59 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_59 -> st_86 { havoc (  ) }
+	st_86 -> st_57 { havoc (  ) }
+	st_57 -> st_93 { havoc (  ) }
+	st_57 -> st_56 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_56 -> st_82 { havoc (  ) }
+	st_82 -> st_77 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_77 -> st_74 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_74 -> st_50 { havoc (  ) }
+	st_50 -> st_56 { havoc (  ) }
+	st_50 -> st_49 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_49 -> st_47 { havoc (  ) }
+	st_47 -> st_54 { havoc (  ) }
+	st_54 -> st_46 { havoc (  ) }
+	st_46 -> st_45 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_45 -> st_101 { havoc (  ) }
+	st_101 -> st_42 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_42 -> st_96 { havoc (  ) }
+	st_96 -> st_62 { havoc (  ) }
+	st_96 -> st_86 { havoc (  ) }
+	st_96 -> st_40 { ( ( ( gvar_0' = 0 ) && ( var_6' = var_4 ) ) && havoc ( gvar_0 ) ) }
+	st_40 -> st_39 { havoc (  ) }
+	st_39 -> st_38 { havoc (  ) }
+	st_38 -> st_60 { havoc (  ) }
+	st_60 -> st_58 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_58 -> st_37 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_37 -> st_35 { havoc (  ) }
+	st_35 -> st_55 { havoc (  ) }
+	st_55 -> st_60 { havoc (  ) }
+	st_55 -> st_34 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_34 -> st_53 { havoc (  ) }
+	st_53 -> st_51 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_51 -> st_30 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_30 -> st_48 { havoc (  ) }
+	st_48 -> st_34 { havoc (  ) }
+	st_48 -> st_29 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_29 -> st_27 { havoc (  ) }
+	st_27 -> st_32 { havoc (  ) }
+	st_32 -> st_43 { havoc (  ) }
+	st_43 -> st_26 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_26 -> st_41 { havoc (  ) }
+	st_41 -> st_24 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_24 -> st_40 { havoc (  ) }
+	st_24 -> st_37 { havoc (  ) }
+	st_24 -> st_21 { ( havoc ( var_3 ) && ( var_3' = var_6 ) ) }
+	st_21 -> st_20 { havoc (  ) }
+	st_20 -> st_19 { havoc (  ) }
+	st_19 -> st_18 { havoc (  ) }
+	st_18 -> st_113 { havoc (  ) }
+	st_113 -> st_22 { havoc (  ) }
+	st_22 -> st_17 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_17 -> st_15 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_15 -> st_13 { havoc (  ) }
+	st_13 -> st_12 { havoc (  ) }
+	st_12 -> st_22 { havoc (  ) }
+	st_12 -> st_11 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_11 -> st_16 { havoc (  ) }
+	st_16 -> st_14 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_14 -> st_9 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_9 -> st_44 { havoc (  ) }
+	st_44 -> st_11 { havoc (  ) }
+	st_44 -> st_7 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_7 -> st_5 { havoc (  ) }
+	st_5 -> st_10 { havoc (  ) }
+	st_10 -> st_6 { havoc (  ) }
+	st_6 -> st_4 { havoc (  ) }
+	st_4 -> st_3 { ( gvar_1'[ tid ] = [0] && havoc ( gvar_1 ) ) }
+	st_3 -> st_2 { ( ( gvar_1[tid] = 1 ) && havoc (  ) ) }
+	st_2 -> st_1 { havoc (  ) }
+	st_1 -> st_0 { havoc (  ) }
+	st_0 -> st_4 { havoc (  ) }
+	st_0 -> st_12 { havoc (  ) }
+	st_3 -> st_17 { havoc (  ) }
+	st_4 -> st_22 { havoc (  ) }
+}
+

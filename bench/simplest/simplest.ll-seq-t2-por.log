@@ -1,0 +1,10 @@
+Task idle_worker_task uses:
+	reads:  { gvar_1, }
+	writes: { gvar_1, }
+Task main uses:
+	reads:  { gvar_0, gvar_1, }
+	writes: { gvar_0, gvar_1, }
+Task thread_func uses:
+	reads:  { }
+	writes: { }
+Total states: 119 edges: 118
